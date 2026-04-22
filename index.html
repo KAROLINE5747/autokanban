@@ -1,29 +1,44 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AutoKanban — Concessionária</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #060c16; font-family: 'Segoe UI', system-ui, sans-serif; color: #f1f5f9; }
-    input, select, textarea, button { font-family: inherit; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-  </style>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AutoKanban — Concessionária</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#060c16;font-family:'Segoe UI',system-ui,sans-serif;color:#f1f5f9;}
+input,select,textarea,button{font-family:inherit;}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:3px;}
+.card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:9px;padding:13px;cursor:pointer;transition:all 0.18s;margin-bottom:7px;}
+.card:hover{background:rgba(255,255,255,0.06);transform:translateY(-2px);}
+.input{width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;padding:9px 12px;outline:none;}
+.btn{padding:9px 16px;border-radius:9px;font-size:13px;cursor:pointer;border:none;font-family:inherit;transition:all 0.2s;}
+.label{display:block;font-size:10px;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin-bottom:5px;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;}
+.modal{background:#0c1220;border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 30px 70px rgba(0,0,0,0.7);}
+.col-header{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-bottom:none;border-radius:9px 9px 0 0;}
+.col-body{background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.07);border-top:none;border-radius:0 0 9px 9px;padding:9px;min-height:100px;}
+.empty{display:flex;align-items:center;justify-content:center;min-height:70px;color:#1e293b;font-size:11px;letter-spacing:1px;border:1px dashed rgba(255,255,255,0.04);border-radius:7px;}
+.tab-btn{background:transparent;border:1px solid transparent;color:#475569;border-radius:8px;padding:5px 13px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:5px;font-family:inherit;}
+.tab-btn.active{background:linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.25));border-color:rgba(139,92,246,0.45);color:#c4b5fd;font-weight:700;}
+.chip{font-size:9px;font-weight:700;color:#94a3b8;background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.2);border-radius:4px;padding:2px 7px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis;display:inline-block;}
+.move-btn{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#64748b;border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:10px;font-family:inherit;}
+.check-label{display:flex;align-items:center;gap:7px;cursor:pointer;padding:5px 9px;border-radius:6px;transition:all 0.2s;margin-bottom:4px;}
+.sugestao{background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;}
+.sugestao:hover{color:#6ee7b7;border-color:rgba(16,185,129,0.35);}
+.example{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;}
+.example:hover{color:#94a3b8;}
+</style>
 </head>
 <body>
-<div id="root"></div>
+<div id="app"></div>
 
-<!-- Firebase -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
 import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
 
-// ─── CONFIGURAÇÃO FIREBASE ────────────────────────────────────────────────────
-// ⚠️ Substitua pelos seus dados do Firebase Console
-const firebaseConfig = {
+const FIREBASE = {
   apiKey: "AIzaSyC5iP4vJ9YF2QSPSE5Vi04TVU5Nh5A8oKA",
   authDomain: "manutencao-f00be.firebaseapp.com",
   databaseURL: "https://manutencao-f00be-default-rtdb.firebaseio.com",
@@ -32,660 +47,594 @@ const firebaseConfig = {
   messagingSenderId: "218382116890",
   appId: "1:218382116890:web:084402591f320e690809a3"
 };
-
-// ─── CHAVE GEMINI ────────────────────────────────────────────────────────────
-// ⚠️ Cole sua chave do Google AI Studio (aistudio.google.com → Get API Key)
 const GEMINI_KEY = "AIzaSyD-G0mcFLMc0tB_Tm7YeyxcI6JOkTZad7E";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY;
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getDatabase(firebaseApp);
-const KANBAN_REF = "autokanban/dados";
+const app = initializeApp(FIREBASE);
+const db = getDatabase(app);
 
-// ─── CONFIGURAÇÃO DO KANBAN ───────────────────────────────────────────────────
 const BOARDS = {
   manutencao: {
     label: "Manutenção", icon: "🔧",
-    columns: [
-      { id: "recepcao",     label: "Recepção",     color: "#38bdf8" },
-      { id: "revisao",      label: "Revisão",      color: "#a78bfa" },
-      { id: "pintura",      label: "Pintura",      color: "#fbbf24" },
-      { id: "outros",       label: "Outros",       color: "#34d399" },
-      { id: "higienizacao", label: "Higienização", color: "#f472b6" },
-      { id: "finalizado",   label: "Finalizado",   color: "#4ade80" },
-    ],
+    cols: [
+      {id:"recepcao",label:"Recepção",color:"#38bdf8"},
+      {id:"revisao",label:"Revisão",color:"#a78bfa"},
+      {id:"pintura",label:"Pintura",color:"#fbbf24"},
+      {id:"outros",label:"Outros",color:"#34d399"},
+      {id:"higienizacao",label:"Higienização",color:"#f472b6"},
+      {id:"finalizado",label:"Finalizado",color:"#4ade80"}
+    ]
   },
   posVenda: {
     label: "Pós-venda / Garantia", icon: "🛡️",
-    columns: [
-      { id: "recepcao_os",       label: "Recepção/OS",       color: "#38bdf8" },
-      { id: "diagnostico",       label: "Diagnóstico",       color: "#c084fc" },
-      { id: "manutencao_reparo", label: "Manutenção/Reparo", color: "#fbbf24" },
-      { id: "aguardando_peca",   label: "Aguardando Peça",   color: "#fb923c" },
-      { id: "pronto",            label: "Pronto",            color: "#4ade80" },
-    ],
-  },
+    cols: [
+      {id:"recepcao_os",label:"Recepção/OS",color:"#38bdf8"},
+      {id:"diagnostico",label:"Diagnóstico",color:"#c084fc"},
+      {id:"manutencao_reparo",label:"Manutenção/Reparo",color:"#fbbf24"},
+      {id:"aguardando_peca",label:"Aguardando Peça",color:"#fb923c"},
+      {id:"pronto",label:"Pronto",color:"#4ade80"}
+    ]
+  }
 };
 
-const CHECKLIST_TEMPLATES = {
-  manutencao: [
-    { cat: "Motor",     items: ["Troca de óleo","Filtro de óleo","Filtro de ar","Velas","Correia dentada"] },
-    { cat: "Freios",    items: ["Pastilhas dianteiras","Pastilhas traseiras","Discos","Fluido de freio"] },
-    { cat: "Elétrica",  items: ["Bateria","Alternador","Luzes","Sensor lambda"] },
-    { cat: "Suspensão", items: ["Amortecedores","Molas","Buchas","Alinhamento","Balanceamento"] },
+const CHECKLISTS = {
+  manutencao:[
+    {cat:"Motor",items:["Troca de óleo","Filtro de óleo","Filtro de ar","Velas","Correia dentada"]},
+    {cat:"Freios",items:["Pastilhas dianteiras","Pastilhas traseiras","Discos","Fluido de freio"]},
+    {cat:"Elétrica",items:["Bateria","Alternador","Luzes","Sensor lambda"]},
+    {cat:"Suspensão",items:["Amortecedores","Molas","Buchas","Alinhamento","Balanceamento"]}
   ],
-  posVenda: [
-    { cat: "Diagnóstico", items: ["Leitura de falhas","Teste de pressão","Inspeção visual","Teste de estrada"] },
-    { cat: "Garantia",    items: ["Documento de garantia","NF das peças","Aprovação fábrica","Fotos registradas"] },
-    { cat: "Reparo",      items: ["Peças solicitadas","Peças recebidas","Mão de obra executada","Teste final"] },
-    { cat: "Entrega",     items: ["Lavagem","Verificação retrovisor","Documentação cliente","Assinatura OS"] },
-  ],
+  posVenda:[
+    {cat:"Diagnóstico",items:["Leitura de falhas","Teste de pressão","Inspeção visual","Teste de estrada"]},
+    {cat:"Garantia",items:["Documento de garantia","NF das peças","Aprovação fábrica","Fotos registradas"]},
+    {cat:"Reparo",items:["Peças solicitadas","Peças recebidas","Mão de obra executada","Teste final"]},
+    {cat:"Entrega",items:["Lavagem","Verificação retrovisor","Documentação cliente","Assinatura OS"]}
+  ]
 };
 
-const PRIORITIES = [
-  { id: "baixa",   label: "Baixa",   color: "#4ade80", bg: "rgba(74,222,128,0.12)"  },
-  { id: "media",   label: "Média",   color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
-  { id: "alta",    label: "Alta",    color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  { id: "urgente", label: "Urgente", color: "#ef4444", bg: "rgba(239,68,68,0.18)"   },
-];
-
-// ─── UTILS ────────────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-function buildChecklist(boardId) {
-  return (CHECKLIST_TEMPLATES[boardId] || []).map(c => ({
-    cat: c.cat,
-    items: c.items.map(label => ({ id: uid(), label, done: false })),
-  }));
+function newChecklist(boardId) {
+  return (CHECKLISTS[boardId]||[]).map(function(c) {
+    return { cat: c.cat, items: c.items.map(function(l){ return {id:uid(),label:l,done:false}; }) };
+  });
 }
 
-function calcProgress(checklist = []) {
-  const all = checklist.flatMap(c => c.items);
-  if (!all.length) return 0;
-  return Math.round(all.filter(i => i.done).length / all.length * 100);
+function progress(checklist) {
+  var all = []; checklist.forEach(function(c){ c.items.forEach(function(i){ all.push(i); }); });
+  if(!all.length) return 0;
+  return Math.round(all.filter(function(i){ return i.done; }).length / all.length * 100);
 }
 
-function defaultState() {
+function defaultData() {
   return {
-    manutencao: { recepcao:[], revisao:[], pintura:[], outros:[], higienizacao:[], finalizado:[] },
-    posVenda:   { recepcao_os:[], diagnostico:[], manutencao_reparo:[], aguardando_peca:[], pronto:[] },
+    manutencao:{recepcao:[],revisao:[],pintura:[],outros:[],higienizacao:[],finalizado:[]},
+    posVenda:{recepcao_os:[],diagnostico:[],manutencao_reparo:[],aguardando_peca:[],pronto:[]}
   };
 }
 
-async function saveData(data) {
-  await set(ref(db, KANBAN_REF), data);
-}
-
-// ─── AI ───────────────────────────────────────────────────────────────────────
-async function interpretCommand(text, currentData) {
-  const systemPrompt = `Você é o assistente do AutoKanban de uma concessionária.
-Receba texto em linguagem natural e retorne SOMENTE JSON válido.
-
-ESTRUTURA:
-Board "manutencao" → colunas: recepcao, revisao, pintura, outros, higienizacao, finalizado
-Board "posVenda" → colunas: recepcao_os, diagnostico, manutencao_reparo, aguardando_peca, pronto
-Campos: { id, placa, modelo, prioridade (baixa/media/alta/urgente), observacoes, consultor, oficina, checklist, criadoEm }
-
-AÇÕES:
-1. { "acao":"adicionar", "board":"manutencao"|"posVenda", "coluna":"...", "placa":"...", "modelo":"...", "prioridade":"...", "observacoes":"...", "consultor":"...", "oficina":"..." }
-2. { "acao":"mover", "placa":"...", "coluna_destino":"...", "board":"..." }
-3. { "acao":"atualizar", "placa":"...", "campos":{ "observacoes":"...", "prioridade":"...", "consultor":"...", "oficina":"..." } }
-4. { "acao":"checklist", "placa":"...", "item":"...", "done":true|false }
-5. { "acao":"remover", "placa":"..." }
-
-REGRAS: Normalize placas para maiúsculas com hífen. Retorne APENAS JSON sem markdown.
-Formato: { "acoes":[...], "resumo":"descrição curta" }
-
-ESTADO ATUAL: ${JSON.stringify(currentData, null, 2).slice(0, 3000)}`;
-
-  const prompt = systemPrompt + "\n\nComando do usuário: " + text;
-  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.1, maxOutputTokens: 1000 }
-    }),
-  });
-  const d = await r.json();
-  const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
-  try { return JSON.parse(raw.replace(/```json|```/g,"").trim()); }
-  catch(_) { return { acoes:[], resumo:"Não entendi o comando." }; }
-}
-
-async function consultaKanban(pergunta, data) {
-  const cards = [];
-  for (const [boardId, board] of Object.entries(data)) {
-    for (const col of (BOARDS[boardId]?.columns||[])) {
-      for (const card of (board[col.id]||[])) {
-        cards.push({ board: BOARDS[boardId].label, etapa: col.label, placa: card.placa, modelo: card.modelo,
-          prioridade: card.prioridade, consultor: card.consultor||"—", oficina: card.oficina||"—",
-          observacoes: card.observacoes||"", progresso: calcProgress(card.checklist)+"%",
-          pendentes: card.checklist.flatMap(c=>c.items.filter(i=>!i.done).map(i=>i.label)) });
-      }
-    }
-  }
-  const prompt = `Você é assistente de consulta do AutoKanban de uma concessionária. Responda perguntas sobre veículos de forma clara com emojis. Responda em português.
-
-DADOS (${cards.length} veículos):
-${JSON.stringify(cards, null, 2)}
-
-Pergunta: ${pergunta}`;
-
-  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: { temperature: 0.3, maxOutputTokens: 1500 }
-    }),
-  });
-  const d = await r.json();
-  return d.candidates?.[0]?.content?.parts?.[0]?.text || "Não consegui processar.";
-}
-
-function applyActions(data, acoes) {
-  const d = JSON.parse(JSON.stringify(data));
-  for (const a of acoes) {
-    if (a.acao==="adicionar") {
-      const board=a.board||"manutencao", col=a.coluna||Object.keys(d[board])[0];
-      if(!d[board][col])d[board][col]=[];
-      d[board][col].unshift({ id:uid(), placa:(a.placa||"SEM-PLACA").toUpperCase(), modelo:a.modelo||"Veículo",
-        prioridade:a.prioridade||"media", observacoes:a.observacoes||"", consultor:a.consultor||"",
-        oficina:a.oficina||"", checklist:buildChecklist(board), criadoEm:new Date().toISOString() });
-    }
-    if (a.acao==="mover") {
-      const placa=a.placa?.toUpperCase(), board=a.board||"manutencao";
-      let found=null, fromCol=null;
-      for(const [col,cards] of Object.entries(d[board])){const i=cards.findIndex(c=>c.placa===placa);if(i!==-1){found=cards.splice(i,1)[0];fromCol=col;break;}}
-      if(found&&a.coluna_destino){if(!d[board][a.coluna_destino])d[board][a.coluna_destino]=[];d[board][a.coluna_destino].unshift(found);}
-      else if(found&&fromCol)d[board][fromCol].unshift(found);
-    }
-    if (a.acao==="atualizar") {
-      const placa=a.placa?.toUpperCase();
-      for(const board of Object.keys(d))for(const col of Object.keys(d[board])){const card=d[board][col].find(c=>c.placa===placa);if(card)Object.assign(card,a.campos||{});}
-    }
-    if (a.acao==="checklist") {
-      const placa=a.placa?.toUpperCase();
-      for(const board of Object.keys(d))for(const col of Object.keys(d[board])){
-        const card=d[board][col].find(c=>c.placa===placa);
-        if(card)for(const cat of card.checklist){const item=cat.items.find(i=>i.label.toLowerCase().includes((a.item||"").toLowerCase()));if(item)item.done=a.done??true;}
-      }
-    }
-    if (a.acao==="remover") {
-      const placa=a.placa?.toUpperCase();
-      for(const board of Object.keys(d))for(const col of Object.keys(d[board]))d[board][col]=d[board][col].filter(c=>c.placa!==placa);
-    }
-  }
-  return d;
-}
-
-// ─── STATE ────────────────────────────────────────────────────────────────────
-let state = {
+// STATE
+var S = {
   data: null,
-  activeBoard: "manutencao",
+  board: "manutencao",
   editCard: null,
+  editColId: null,
   showNew: false,
   syncStatus: "ok",
   lastSync: null,
-  aiLog: [],
   queryResult: null,
-  queryStatus: "idle",
-  cmdStatus: "idle",
+  queryLoading: false,
   cmdResult: null,
+  cmdLoading: false,
+  aiLog: []
 };
 
 function setState(patch) {
-  Object.assign(state, patch);
+  Object.assign(S, patch);
   render();
 }
 
-// ─── FIREBASE LISTENER ────────────────────────────────────────────────────────
-onValue(ref(db, KANBAN_REF), (snap) => {
-  const val = snap.val();
-  setState({ data: val || defaultState(), lastSync: new Date(), syncStatus: "ok" });
+// FIREBASE
+onValue(ref(db, "autokanban/dados"), function(snap) {
+  var val = snap.val();
+  setState({ data: val || defaultData(), lastSync: new Date(), syncStatus: "ok" });
 });
 
-async function persist(newData) {
-  setState({ syncStatus: "saving" });
-  try { await saveData(newData); setState({ syncStatus: "ok", lastSync: new Date() }); }
-  catch(_) { setState({ syncStatus: "error" }); }
+function save(d) {
+  setState({syncStatus:"saving"});
+  set(ref(db, "autokanban/dados"), d).then(function(){
+    setState({syncStatus:"ok", lastSync:new Date()});
+  }).catch(function(){ setState({syncStatus:"error"}); });
 }
 
-function updateData(fn) {
-  const next = fn(JSON.parse(JSON.stringify(state.data)));
-  setState({ data: next });
-  persist(next);
+function update(fn) {
+  var next = JSON.parse(JSON.stringify(S.data));
+  fn(next);
+  setState({data:next});
+  save(next);
 }
 
-// ─── STYLES ───────────────────────────────────────────────────────────────────
-const S = {
-  input: "background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;padding:9px 12px;outline:none;width:100%;box-sizing:border-box;",
-  btn: "padding:9px 16px;border-radius:9px;font-size:13px;cursor:pointer;transition:all 0.2s;border:none;font-family:inherit;",
-  label: "display:block;font-size:10px;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin-bottom:5px;",
-};
+// GEMINI
+async function callGemini(prompt) {
+  var r = await fetch(GEMINI_URL, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      contents:[{role:"user",parts:[{text:prompt}]}],
+      generationConfig:{temperature:0.1,maxOutputTokens:1500}
+    })
+  });
+  var d = await r.json();
+  if(d.error) throw new Error(d.error.message);
+  return d.candidates[0].content.parts[0].text;
+}
 
-// ─── RENDER ───────────────────────────────────────────────────────────────────
+async function interpretCmd(text) {
+  var allCards = [];
+  Object.keys(S.data).forEach(function(bId){
+    (BOARDS[bId]||{cols:[]}).cols.forEach(function(col){
+      (S.data[bId][col.id]||[]).forEach(function(card){
+        allCards.push({board:BOARDS[bId].label,etapa:col.label,placa:card.placa,modelo:card.modelo,prioridade:card.prioridade,oficina:card.oficina||"",consultor:card.consultor||""});
+      });
+    });
+  });
+
+  var prompt = "Você é assistente do AutoKanban de uma concessionária. Retorne APENAS JSON válido sem markdown.\n\n"
+    + "BOARDS: manutencao(recepcao,revisao,pintura,outros,higienizacao,finalizado) | posVenda(recepcao_os,diagnostico,manutencao_reparo,aguardando_peca,pronto)\n\n"
+    + "AÇÕES:\n"
+    + "adicionar: {\"acao\":\"adicionar\",\"board\":\"manutencao\",\"coluna\":\"recepcao\",\"placa\":\"ABC-1234\",\"modelo\":\"...\",\"prioridade\":\"media\",\"observacoes\":\"...\",\"consultor\":\"...\",\"oficina\":\"...\"}\n"
+    + "mover: {\"acao\":\"mover\",\"placa\":\"ABC-1234\",\"coluna_destino\":\"revisao\",\"board\":\"manutencao\"}\n"
+    + "atualizar: {\"acao\":\"atualizar\",\"placa\":\"ABC-1234\",\"campos\":{\"observacoes\":\"...\",\"oficina\":\"...\"}}\n"
+    + "remover: {\"acao\":\"remover\",\"placa\":\"ABC-1234\"}\n\n"
+    + "REGRAS: Placas em maiúsculas com hífen. Retorne {\"acoes\":[...],\"resumo\":\"...\"}\n\n"
+    + "ESTADO ATUAL: " + JSON.stringify(allCards) + "\n\n"
+    + "COMANDO: " + text;
+
+  var raw = await callGemini(prompt);
+  var clean = raw.replace(/```json/g,"").replace(/```/g,"").trim();
+  return JSON.parse(clean);
+}
+
+async function consultaIA(pergunta) {
+  var cards = [];
+  Object.keys(S.data).forEach(function(bId){
+    (BOARDS[bId]||{cols:[]}).cols.forEach(function(col){
+      (S.data[bId][col.id]||[]).forEach(function(card){
+        var pend = [];
+        card.checklist.forEach(function(c){ c.items.forEach(function(i){ if(!i.done) pend.push(i.label); }); });
+        cards.push({board:BOARDS[bId].label,etapa:col.label,placa:card.placa,modelo:card.modelo,prioridade:card.prioridade,oficina:card.oficina||"—",consultor:card.consultor||"—",progresso:progress(card.checklist)+"%",pendentes:pend});
+      });
+    });
+  });
+
+  var prompt = "Você é assistente de consulta do AutoKanban de uma concessionária.\n"
+    + "Responda em português com emojis de forma clara e objetiva.\n\n"
+    + "DADOS (" + cards.length + " veículos):\n" + JSON.stringify(cards, null, 2) + "\n\n"
+    + "PERGUNTA: " + pergunta;
+
+  return await callGemini(prompt);
+}
+
+function applyActions(acoes) {
+  update(function(d){
+    acoes.forEach(function(a){
+      if(a.acao === "adicionar") {
+        var board = a.board||"manutencao";
+        var col = a.coluna||"recepcao";
+        if(!d[board][col]) d[board][col]=[];
+        d[board][col].unshift({
+          id:uid(), placa:(a.placa||"SEM-PLACA").toUpperCase(),
+          modelo:a.modelo||"Veículo", prioridade:a.prioridade||"media",
+          observacoes:a.observacoes||"", consultor:a.consultor||"",
+          oficina:a.oficina||"", checklist:newChecklist(board),
+          criadoEm:new Date().toISOString()
+        });
+      }
+      if(a.acao === "mover") {
+        var placa = (a.placa||"").toUpperCase();
+        var board = a.board||"manutencao";
+        var found = null;
+        Object.keys(d[board]).forEach(function(col){
+          var idx = d[board][col].findIndex(function(c){ return c.placa===placa; });
+          if(idx !== -1 && !found) { found = d[board][col].splice(idx,1)[0]; }
+        });
+        if(found && a.coluna_destino) {
+          if(!d[board][a.coluna_destino]) d[board][a.coluna_destino]=[];
+          d[board][a.coluna_destino].unshift(found);
+        }
+      }
+      if(a.acao === "atualizar") {
+        var placa = (a.placa||"").toUpperCase();
+        Object.keys(d).forEach(function(b){ Object.keys(d[b]).forEach(function(col){
+          var card = d[b][col].find(function(c){ return c.placa===placa; });
+          if(card) Object.assign(card, a.campos||{});
+        });});
+      }
+      if(a.acao === "remover") {
+        var placa = (a.placa||"").toUpperCase();
+        Object.keys(d).forEach(function(b){ Object.keys(d[b]).forEach(function(col){
+          d[b][col] = d[b][col].filter(function(c){ return c.placa!==placa; });
+        });});
+      }
+    });
+  });
+}
+
+// RENDER
 function render() {
-  if (!state.data) {
-    document.getElementById("root").innerHTML = `
-      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#334155;">
-        <div style="text-align:center"><div style="font-size:44px;margin-bottom:14px">🔧</div><div style="font-size:12px;letter-spacing:3px">CARREGANDO...</div></div>
-      </div>`;
-    return;
+  document.getElementById("app").innerHTML = S.data ? renderApp() : renderLoading();
+  attachEvents();
+}
+
+function renderLoading() {
+  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;"><div style="text-align:center"><div style="font-size:44px;margin-bottom:14px">🔧</div><div style="font-size:12px;letter-spacing:3px;color:#334155">CARREGANDO...</div></div></div>';
+}
+
+function renderApp() {
+  var board = BOARDS[S.board];
+  var bdata = S.data[S.board];
+  var total = 0; Object.values(bdata).forEach(function(c){ total+=c.length; });
+  var doneKey = S.board==="manutencao"?"finalizado":"pronto";
+  var done = (bdata[doneKey]||[]).length;
+  var syncColor = S.syncStatus==="saving"?"#fbbf24":S.syncStatus==="error"?"#f87171":"#4ade80";
+  var syncLabel = S.syncStatus==="saving"?"⟳ SYNC":S.syncStatus==="error"?"⚠ ERRO":"● AO VIVO";
+
+  var html = '';
+
+  // HEADER
+  html += '<div style="background:rgba(6,12,22,0.97);border-bottom:1px solid rgba(255,255,255,0.06);padding:0 20px;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);">';
+  html += '<div style="max-width:1700px;margin:0 auto;display:flex;align-items:center;gap:16px;height:56px;flex-wrap:wrap;">';
+  html += '<div style="display:flex;align-items:center;gap:9px;">';
+  html += '<div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:9px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 18px rgba(139,92,246,0.4);">🚗</div>';
+  html += '<div><div style="font-weight:800;font-size:14px;background:linear-gradient(135deg,#e2e8f0,#94a3b8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">AutoKanban</div>';
+  html += '<div style="font-size:8px;color:#334155;letter-spacing:2px;">CONCESSIONÁRIA</div></div></div>';
+
+  Object.keys(BOARDS).forEach(function(id) {
+    var b = BOARDS[id];
+    var active = S.board===id;
+    html += '<button class="tab-btn' + (active?' active':'') + '" data-board="' + id + '">' + b.icon + ' ' + b.label + '</button>';
+  });
+
+  html += '<div style="flex:1"></div>';
+  html += '<div style="display:flex;gap:12px;align-items:center;font-size:11px;color:#334155;">';
+  html += '<span><span style="color:#94a3b8;font-weight:700;">' + total + '</span> veículos</span>';
+  html += '<span><span style="color:#4ade80;font-weight:700;">' + done + '</span> prontos</span>';
+  html += '<span style="font-size:9px;color:' + syncColor + ';letter-spacing:1px;">' + syncLabel + '</span>';
+  if(S.lastSync) html += '<span style="font-size:9px;color:#1e293b;">' + S.lastSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}) + '</span>';
+  html += '</div>';
+  html += '<button id="btn-novo" class="btn" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;font-size:12px;box-shadow:0 4px 14px rgba(139,92,246,0.3);white-space:nowrap;">+ Novo Veículo</button>';
+  html += '</div></div>';
+
+  // CONTENT
+  html += '<div style="padding:18px 20px 32px;max-width:1700px;margin:0 auto;">';
+
+  // CONSULTA IA
+  html += '<div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:16px 20px;margin-bottom:20px;">';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
+  html += '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);display:flex;align-items:center;justify-content:center;font-size:15px;">🔍</div>';
+  html += '<div><div style="color:#6ee7b7;font-size:12px;font-weight:700;">Consulta Inteligente</div>';
+  html += '<div style="color:#475569;font-size:10px;letter-spacing:1px;">PERGUNTE QUALQUER COISA SOBRE OS VEÍCULOS</div></div></div>';
+  html += '<div style="display:flex;gap:8px;margin-bottom:10px;">';
+  html += '<input id="query-input" class="input" style="flex:1;border:1px solid rgba(16,185,129,0.25);" placeholder="Ex: Quais carros faltam higienizar? ou Resumo geral"/>';
+  html += '<button id="btn-query" class="btn" style="background:' + (S.queryLoading?"rgba(16,185,129,0.2)":"linear-gradient(135deg,#059669,#10b981)") + ';color:#fff;font-weight:700;white-space:nowrap;min-width:110px;">' + (S.queryLoading?"⟳ IA...":"🔍 Consultar") + '</button>';
+  html += '</div>';
+  html += '<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:' + (S.queryResult?'12':'0') + 'px;">';
+  var qs = ["Quais carros estão na recepção","Quais carros faltam higienizar","Carros do pós-venda","Carros com prioridade urgente","Resumo geral de tudo","Carros aguardando peça","Carros na pintura"];
+  qs.forEach(function(q){ html += '<button class="sugestao" data-query="' + q + '">' + q + '</button>'; });
+  html += '</div>';
+  if(S.queryResult) html += '<div style="margin-top:12px;padding:14px 16px;background:rgba(0,0,0,0.25);border:1px solid rgba(16,185,129,0.15);border-radius:10px;font-size:13px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap;max-height:340px;overflow-y:auto;">' + S.queryResult + '</div>';
+  html += '</div>';
+
+  // COMANDO IA
+  html += '<div style="background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:16px 20px;margin-bottom:20px;">';
+  html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">';
+  html += '<div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;">✦</div>';
+  html += '<div><div style="color:#c4b5fd;font-size:12px;font-weight:700;">Comando em Texto Livre</div>';
+  html += '<div style="color:#475569;font-size:10px;letter-spacing:1px;">DESCREVA O QUE QUER FAZER — A IA INTERPRETA</div></div></div>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<input id="cmd-input" class="input" style="flex:1;border:1px solid rgba(99,102,241,0.3);" placeholder="Ex: Entra o Civic placa MNO-3344 na recepção, urgente"/>';
+  html += '<button id="btn-cmd" class="btn" style="background:' + (S.cmdLoading?"rgba(99,102,241,0.3)":"linear-gradient(135deg,#6366f1,#8b5cf6)") + ';color:#fff;font-weight:700;white-space:nowrap;min-width:90px;">' + (S.cmdLoading?"⟳ IA...":"↵ Enviar") + '</button>';
+  html += '</div>';
+  if(S.cmdResult) html += '<div style="margin-top:9px;padding:7px 12px;border-radius:8px;background:' + (S.cmdResult.ok?"rgba(74,222,128,0.08)":"rgba(248,113,113,0.08)") + ';border:1px solid ' + (S.cmdResult.ok?"rgba(74,222,128,0.2)":"rgba(248,113,113,0.2)") + ';font-size:12px;color:' + (S.cmdResult.ok?"#4ade80":"#f87171") + ';">' + (S.cmdResult.ok?"✓ ":"⚠ ") + S.cmdResult.msg + '</div>';
+  html += '<div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;">';
+  var exs = ["Entrada o Civic 2022 placa MNO-3344 na recepção","Move o ABC-1234 para revisão","O XYZ-5678 está pronto","Atualiza obs do ABC-1234: cliente pediu urgência"];
+  exs.forEach(function(e){ html += '<button class="example" data-cmd="' + e + '">' + (e.length>42?e.slice(0,42)+'…':e) + '</button>'; });
+  html += '</div></div>';
+
+  // LOG
+  if(S.aiLog.length > 0) {
+    html += '<div style="margin-bottom:16px;padding:10px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">';
+    html += '<div style="font-size:9px;color:#334155;letter-spacing:2px;margin-bottom:7px;">HISTÓRICO IA</div>';
+    S.aiLog.forEach(function(l){ html += '<div style="font-size:11px;color:#475569;display:flex;gap:8px;margin-bottom:2px;"><span style="color:#334155;font-family:monospace;">' + l.time + '</span><span>' + l.msg + '</span></div>'; });
+    html += '</div>';
   }
 
-  const board = BOARDS[state.activeBoard];
-  const boardData = state.data[state.activeBoard];
-  const totalCards = Object.values(boardData).flat().length;
-  const doneKey = state.activeBoard === "manutencao" ? "finalizado" : "pronto";
-  const doneCount = (boardData[doneKey]||[]).length;
-  const syncColor = state.syncStatus==="saving"?"#fbbf24":state.syncStatus==="error"?"#f87171":"#4ade80";
-  const syncLabel = state.syncStatus==="saving"?"⟳ SYNC":state.syncStatus==="error"?"⚠ ERRO":"● AO VIVO";
-
-  document.getElementById("root").innerHTML = `
-  <div style="min-height:100vh;background:#060c16;">
-
-    <!-- HEADER -->
-    <div style="background:rgba(6,12,22,0.97);border-bottom:1px solid rgba(255,255,255,0.06);padding:0 20px;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);">
-      <div style="max-width:1700px;margin:0 auto;display:flex;align-items:center;gap:16px;height:56px;flex-wrap:wrap;">
-        <div style="display:flex;align-items:center;gap:9px;">
-          <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:9px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 18px rgba(139,92,246,0.4);">🚗</div>
-          <div>
-            <div style="font-weight:800;font-size:14px;background:linear-gradient(135deg,#e2e8f0,#94a3b8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">AutoKanban</div>
-            <div style="font-size:8px;color:#334155;letter-spacing:2px;">CONCESSIONÁRIA</div>
-          </div>
-        </div>
-        ${Object.entries(BOARDS).map(([id,b])=>`
-          <button onclick="switchBoard('${id}')" style="${S.btn}background:${state.activeBoard===id?"linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.25))":"transparent"};border:1px solid ${state.activeBoard===id?"rgba(139,92,246,0.45)":"transparent"};color:${state.activeBoard===id?"#c4b5fd":"#475569"};font-weight:${state.activeBoard===id?700:400};display:flex;align-items:center;gap:5px;">
-            ${b.icon} ${b.label}
-          </button>`).join("")}
-        <div style="flex:1"></div>
-        <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:#334155;flex-wrap:wrap;">
-          <span><span style="color:#94a3b8;font-weight:700;">${totalCards}</span> veículos</span>
-          <span><span style="color:#4ade80;font-weight:700;">${doneCount}</span> prontos</span>
-          <span style="font-size:9px;color:${syncColor};letter-spacing:1px;">${syncLabel}</span>
-          ${state.lastSync?`<span style="font-size:9px;color:#1e293b;">${state.lastSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</span>`:""}
-        </div>
-        <button onclick="openNew()" style="${S.btn}background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;font-size:12px;box-shadow:0 4px 14px rgba(139,92,246,0.3);white-space:nowrap;">+ Novo Veículo</button>
-      </div>
-    </div>
-
-    <!-- CONTENT -->
-    <div style="padding:18px 20px 32px;max-width:1700px;margin:0 auto;">
-
-      <!-- CONSULTA IA -->
-      <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:16px 20px;margin-bottom:20px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 14px rgba(16,185,129,0.35);">🔍</div>
-          <div>
-            <div style="color:#6ee7b7;font-size:12px;font-weight:700;">Consulta Inteligente</div>
-            <div style="color:#475569;font-size:10px;letter-spacing:1px;">PERGUNTE QUALQUER COISA SOBRE OS VEÍCULOS</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:10px;">
-          <input id="queryInput" style="${S.input}flex:1;border:1px solid rgba(16,185,129,0.25);" placeholder='Ex: "Quais carros faltam higienizar?" ou "Resumo geral"'
-            onkeydown="if(event.key==='Enter')sendQuery()" />
-          <button onclick="sendQuery()" style="${S.btn}background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-weight:700;white-space:nowrap;min-width:110px;">
-            ${state.queryStatus==="thinking"?"⟳ IA...":"🔍 Consultar"}
-          </button>
-        </div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:${state.queryResult?12:0}px;">
-          <button onclick="quickQuery('Quais carros estao na recepcao')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros estão na recepção?</button>
-          <button onclick="quickQuery('Quais carros faltam higienizar')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros faltam higienizar?</button>
-          <button onclick="quickQuery('Carros do pos-venda')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Mostre todos os carros do Pós-venda</button>
-          <button onclick="quickQuery('Carros com prioridade urgente')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros têm prioridade urgente?</button>
-          <button onclick="quickQuery('Resumo geral de tudo')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Resumo geral de tudo</button>
-          <button onclick="quickQuery('Quais carros aguardando peca')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros estão aguardando peça?</button>
-          <button onclick="quickQuery('Quais carros na pintura')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros estão na pintura?</button>
-        </div>
-        ${state.queryResult?`<div style="margin-top:12px;padding:14px 16px;background:rgba(0,0,0,0.25);border:1px solid rgba(16,185,129,0.15);border-radius:10px;font-size:13px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap;max-height:340px;overflow-y:auto;">${state.queryResult}</div>`:""}
-      </div>
-
-      <!-- COMANDO IA -->
-      <div style="background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:16px 20px;margin-bottom:20px;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-          <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 14px rgba(139,92,246,0.4);">✦</div>
-          <div>
-            <div style="color:#c4b5fd;font-size:12px;font-weight:700;">Comando em Texto Livre</div>
-            <div style="color:#475569;font-size:10px;letter-spacing:1px;">DESCREVA O QUE QUER FAZER — A IA INTERPRETA</div>
-          </div>
-        </div>
-        <div style="display:flex;gap:8px;">
-          <input id="cmdInput" style="${S.input}flex:1;border:1px solid rgba(99,102,241,0.3);" placeholder='Ex: "Entra o Civic placa MNO-3344 na recepção, urgente"'
-            onkeydown="if(event.key==='Enter')sendCmd()" />
-          <button onclick="sendCmd()" style="${S.btn}background:${state.cmdStatus==="thinking"?"rgba(99,102,241,0.3)":"linear-gradient(135deg,#6366f1,#8b5cf6)"};color:#fff;font-weight:700;white-space:nowrap;min-width:90px;">
-            ${state.cmdStatus==="thinking"?"⟳ IA...":"↵ Enviar"}
-          </button>
-        </div>
-        ${state.cmdResult?`<div style="margin-top:9px;padding:7px 12px;border-radius:8px;background:${state.cmdResult.ok?"rgba(74,222,128,0.08)":"rgba(248,113,113,0.08)"};border:1px solid ${state.cmdResult.ok?"rgba(74,222,128,0.2)":"rgba(248,113,113,0.2)"};font-size:12px;color:${state.cmdResult.ok?"#4ade80":"#f87171"};">${state.cmdResult.ok?"✓ ":"⚠ "}${state.cmdResult.msg}</div>`:""}
-        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;">
-          <button onclick="fillCmd('Entrada o Fiat Argo 2023 placa DEF-9876 prioridade alta')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">Entrada o Fiat Argo placa DEF-9876 alta</button>
-          <button onclick="fillCmd('Move o ABC-1234 para revisao')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">Move o ABC-1234 para revisão</button>
-          <button onclick="fillCmd('O HR-V XYZ-5678 esta pronto')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">O HR-V XYZ-5678 está pronto</button>
-          <button onclick="fillCmd('Atualiza obs do ABC-1234 cliente pediu urgencia')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">Atualiza obs do ABC-1234: urgência</button>
-          <button onclick="fillCmd('Marca troca de oleo como feito no ABC-1234')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">Marca troca de óleo no ABC-1234</button>
-        </div>
-      </div>
-
-      ${state.aiLog.length>0?`
-      <div style="margin-bottom:16px;padding:10px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
-        <div style="font-size:9px;color:#334155;letter-spacing:2px;margin-bottom:7px;">HISTÓRICO IA</div>
-        ${state.aiLog.map(l=>`<div style="font-size:11px;color:#475569;display:flex;gap:8px;margin-bottom:2px;"><span style="color:#334155;font-family:monospace;">${l.time}</span><span>${l.msg}</span></div>`).join("")}
-      </div>`:""}
-
-      <!-- KANBAN -->
-      <div style="overflow-x:auto;">
-        <div style="display:flex;gap:12px;min-width:max-content;">
-          ${board.columns.map((col, colIdx) => {
-            const cards = boardData[col.id] || [];
-            return `
-            <div style="width:265px;flex-shrink:0;">
-              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-bottom:none;border-radius:9px 9px 0 0;border-top:3px solid ${col.color};">
-                <div style="display:flex;align-items:center;gap:7px;">
-                  <div style="width:7px;height:7px;border-radius:50%;background:${col.color};box-shadow:0 0 7px ${col.color};"></div>
-                  <span style="font-size:11px;font-weight:700;color:#cbd5e1;">${col.label}</span>
-                </div>
-                <span style="background:${col.color}1a;color:${col.color};border:1px solid ${col.color}35;border-radius:11px;font-size:10px;font-weight:700;padding:1px 7px;">${cards.length}</span>
-              </div>
-              <div style="background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.07);border-top:none;border-radius:0 0 9px 9px;padding:9px;display:flex;flex-direction:column;gap:7px;min-height:100px;">
-                ${cards.length===0
-                  ? `<div style="display:flex;align-items:center;justify-content:center;min-height:70px;color:#1e293b;font-size:11px;letter-spacing:1px;border:1px dashed rgba(255,255,255,0.04);border-radius:7px;">vazio</div>`
-                  : cards.map(card => renderCard(card, col.color, colIdx, board.columns.length)).join("")
-                }
-              </div>
-            </div>`;
-          }).join("")}
-        </div>
-      </div>
-    </div>
-
-    <!-- MODAL EDITAR -->
-    ${state.editCard ? renderEditModal() : ""}
-
-    <!-- MODAL NOVO -->
-    ${state.showNew ? renderNewModal() : ""}
-
-  </div>`;
-}
-
-function renderCard(card, colColor, colIdx, totalCols) {
-  const progress = calcProgress(card.checklist);
-  const total = card.checklist.flatMap(c=>c.items).length;
-  const done = card.checklist.flatMap(c=>c.items).filter(i=>i.done).length;
-  const progColor = progress===100?"#4ade80":progress>60?"#a78bfa":progress>30?"#fbbf24":"#38bdf8";
-  return `
-  <div onclick="openCard('${card.id}')"
-    style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-left:3px solid ${colColor};border-radius:9px;padding:13px 13px 11px;cursor:pointer;transition:all 0.18s;"
-    onmouseover="this.style.background='rgba(255,255,255,0.06)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 22px rgba(0,0,0,0.3)'"
-    onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.transform='';this.style.boxShadow=''">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;">
-      <div style="flex:1;min-width:0;margin-right:6px;">
-        <div style="font-family:monospace;font-weight:800;font-size:14px;color:#f1f5f9;letter-spacing:1px;">${card.placa}</div>
-        <div style="font-size:11px;color:#475569;margin-top:1px;">${card.modelo}</div>
-      </div>
-      ${card.oficina?`<span style="font-size:9px;font-weight:700;color:#94a3b8;background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.2);border-radius:4px;padding:2px 7px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis;display:inline-block;">📍 ${card.oficina}</span>`:""}
-    </div>
-    ${card.consultor?`<div style="font-size:10px;color:#64748b;margin-bottom:4px;">👤 ${card.consultor}</div>`:""}
-    ${card.observacoes?`<div style="font-size:11px;color:#475569;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:2px;">${card.observacoes}</div>`:""}
-    <div style="margin-top:9px;">
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:3px;font-family:monospace;">
-        <span>PROGRESSO</span><span style="color:${progColor};">${progress}%</span>
-      </div>
-      <div style="height:4px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;">
-        <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,${progColor}80,${progColor});border-radius:3px;transition:width 0.4s;box-shadow:0 0 6px ${progColor}50;"></div>
-      </div>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;">
-      <span style="font-size:9px;color:#334155;font-family:monospace;">✓ ${done}/${total}</span>
-      <div style="display:flex;gap:3px;" onclick="event.stopPropagation()">
-        ${colIdx>0?`<button onclick="moveCard('${card.id}',-1)" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#64748b;border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:10px;font-family:inherit;">◀</button>`:""}
-        ${colIdx<totalCols-1?`<button onclick="moveCard('${card.id}',1)" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#64748b;border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:10px;font-family:inherit;">▶</button>`:""}
-      </div>
-    </div>
-  </div>`;
-}
-
-function renderEditModal() {
-  const { card, colId } = state.editCard;
-  const progress = calcProgress(card.checklist);
-  const progColor = progress===100?"#4ade80":progress>60?"#a78bfa":progress>30?"#fbbf24":"#38bdf8";
-  const cols = BOARDS[state.activeBoard].columns;
-  return `
-  <div onclick="closeModal()" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;">
-    <div onclick="event.stopPropagation()" style="background:#0c1220;border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 30px 70px rgba(0,0,0,0.7);">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;">
-        <div>
-          <div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:3px;">EDITAR CARD</div>
-          <div style="color:#f1f5f9;font-size:17px;font-weight:800;font-family:monospace;">${card.placa}</div>
-        </div>
-        <button onclick="closeModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#64748b;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:15px;font-family:inherit;">✕</button>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        ${[["Placa","placa"],["Modelo","modelo"],["Consultor","consultor"],["Oficina / Local","oficina"]].map(([lbl,key])=>`
-          <div>
-            <label style="${S.label}">${lbl}</label>
-            <input style="${S.input}" id="edit_${key}" value="${(card[key]||"").replace(/"/g,"&quot;")}" placeholder="${key==="oficina"?"Ex: Funilaria, Box 3...":""}"
-              oninput="updateEditField('${key}',this.value)" />
-          </div>`).join("")}
-        <div>
-          <label style="${S.label}">Prioridade</label>
-          <select style="${S.input}" onchange="updateEditField('prioridade',this.value)">
-            ${PRIORITIES.map(p=>`<option value="${p.id}" ${card.prioridade===p.id?"selected":""}>${p.label}</option>`).join("")}
-          </select>
-        </div>
-        <div style="grid-column:1/-1;">
-          <label style="${S.label}">Etapa</label>
-          <select style="${S.input}" onchange="updateEditCol(this.value)">
-            ${cols.map(c=>`<option value="${c.id}" ${colId===c.id?"selected":""}>${c.label}</option>`).join("")}
-          </select>
-        </div>
-      </div>
-      <div style="margin-bottom:14px;">
-        <label style="${S.label}">Observações</label>
-        <textarea style="${S.input}height:68px;resize:vertical;" oninput="updateEditField('observacoes',this.value)">${card.observacoes||""}</textarea>
-      </div>
-      <div style="margin-top:9px;">
-        <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:3px;font-family:monospace;">
-          <span>PROGRESSO</span><span style="color:${progColor};">${progress}%</span>
-        </div>
-        <div style="height:4px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;">
-          <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,${progColor}80,${progColor});border-radius:3px;"></div>
-        </div>
-      </div>
-      <div style="margin-top:18px;">
-        <div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:10px;">CHECKLIST</div>
-        ${card.checklist.map((cat,ci)=>`
-          <div style="margin-bottom:14px;">
-            <div style="color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">${cat.cat}</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
-              ${cat.items.map((item,ii)=>`
-                <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:5px 9px;border-radius:6px;background:${item.done?"rgba(74,222,128,0.08)":"rgba(255,255,255,0.03)"};border:1px solid ${item.done?"rgba(74,222,128,0.25)":"rgba(255,255,255,0.06)"};transition:all 0.2s;">
-                  <input type="checkbox" ${item.done?"checked":""} onchange="toggleCheck(${ci},${ii})" style="accent-color:#4ade80;width:13px;height:13px;" />
-                  <span style="font-size:11px;color:${item.done?"#4ade80":"#64748b"};text-decoration:${item.done?"line-through":"none"};">${item.label}</span>
-                </label>`).join("")}
-            </div>
-          </div>`).join("")}
-      </div>
-      <div style="display:flex;gap:9px;margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.07);">
-        <button onclick="deleteCard('${card.id}')" style="${S.btn}background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;">🗑 Excluir</button>
-        <button onclick="saveCard()" style="${S.btn}flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;">✓ Salvar</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-function renderNewModal() {
-  const cols = BOARDS[state.activeBoard].columns;
-  return `
-  <div onclick="closeNew()" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;">
-    <div onclick="event.stopPropagation()" style="background:#0c1220;border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:100%;max-width:460px;padding:28px;box-shadow:0 30px 70px rgba(0,0,0,0.7);">
-      <div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:3px;">NOVO VEÍCULO</div>
-      <div style="color:#f1f5f9;font-size:17px;font-weight:800;margin-bottom:20px;">Adicionar ao Kanban</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
-        ${[["Placa *","new_placa","ABC-1234"],["Modelo *","new_modelo","Toyota Corolla"],["Consultor","new_consultor","Nome"],["Oficina / Local","new_oficina","Ex: Box 3"]].map(([lbl,id,ph])=>`
-          <div>
-            <label style="${S.label}">${lbl}</label>
-            <input id="${id}" style="${S.input}" placeholder="${ph}" />
-          </div>`).join("")}
-        <div>
-          <label style="${S.label}">Prioridade</label>
-          <select id="new_prioridade" style="${S.input}">
-            ${PRIORITIES.map(p=>`<option value="${p.id}" ${p.id==="media"?"selected":""}>${p.label}</option>`).join("")}
-          </select>
-        </div>
-        <div style="grid-column:1/-1;">
-          <label style="${S.label}">Etapa inicial</label>
-          <select id="new_coluna" style="${S.input}">
-            ${cols.map(c=>`<option value="${c.id}">${c.label}</option>`).join("")}
-          </select>
-        </div>
-      </div>
-      <div style="margin-bottom:20px;">
-        <label style="${S.label}">Observações</label>
-        <textarea id="new_obs" style="${S.input}height:60px;resize:vertical;" placeholder="Notas iniciais..."></textarea>
-      </div>
-      <div style="display:flex;gap:9px;">
-        <button onclick="closeNew()" style="${S.btn}background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#64748b;">Cancelar</button>
-        <button onclick="addCard()" style="${S.btn}flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;">+ Adicionar</button>
-      </div>
-    </div>
-  </div>`;
-}
-
-// ─── ACTIONS ──────────────────────────────────────────────────────────────────
-window.switchBoard = (id) => setState({ activeBoard: id, editCard: null, showNew: false });
-window.openNew = () => setState({ showNew: true });
-window.closeNew = () => setState({ showNew: false });
-window.closeModal = () => setState({ editCard: null });
-
-window.openCard = (id) => {
-  for (const [boardId, board] of Object.entries(state.data)) {
-    if (boardId !== state.activeBoard) continue;
-    for (const [colId, cards] of Object.entries(board)) {
-      const card = cards.find(c => c.id === id);
-      if (card) { setState({ editCard: { card: JSON.parse(JSON.stringify(card)), colId } }); return; }
-    }
-  }
-};
-
-window.updateEditField = (key, val) => {
-  if (!state.editCard) return;
-  const card = { ...state.editCard.card, [key]: key === "placa" ? val.toUpperCase() : val };
-  setState({ editCard: { ...state.editCard, card } });
-};
-
-window.updateEditCol = (colId) => {
-  if (!state.editCard) return;
-  setState({ editCard: { ...state.editCard, colId } });
-};
-
-window.toggleCheck = (ci, ii) => {
-  if (!state.editCard) return;
-  const card = JSON.parse(JSON.stringify(state.editCard.card));
-  card.checklist[ci].items[ii].done = !card.checklist[ci].items[ii].done;
-  setState({ editCard: { ...state.editCard, card } });
-};
-
-window.saveCard = () => {
-  const { card, colId } = state.editCard;
-  updateData(d => {
-    for (const col of Object.keys(d[state.activeBoard])) {
-      const idx = d[state.activeBoard][col].findIndex(c => c.id === card.id);
-      if (idx !== -1) { d[state.activeBoard][col].splice(idx, 1); break; }
-    }
-    if (!d[state.activeBoard][colId]) d[state.activeBoard][colId] = [];
-    d[state.activeBoard][colId].push(card);
-    return d;
-  });
-  setState({ editCard: null });
-};
-
-window.deleteCard = (id) => {
-  updateData(d => {
-    for (const col of Object.keys(d[state.activeBoard])) d[state.activeBoard][col] = d[state.activeBoard][col].filter(c => c.id !== id);
-    return d;
-  });
-  setState({ editCard: null });
-};
-
-window.addCard = () => {
-  const placa = document.getElementById("new_placa")?.value?.toUpperCase();
-  const modelo = document.getElementById("new_modelo")?.value;
-  if (!placa || !modelo) return;
-  const coluna = document.getElementById("new_coluna")?.value;
-  const card = {
-    id: uid(), placa, modelo,
-    prioridade: document.getElementById("new_prioridade")?.value || "media",
-    consultor: document.getElementById("new_consultor")?.value || "",
-    oficina: document.getElementById("new_oficina")?.value || "",
-    observacoes: document.getElementById("new_obs")?.value || "",
-    checklist: buildChecklist(state.activeBoard),
-    criadoEm: new Date().toISOString(),
-  };
-  updateData(d => {
-    if (!d[state.activeBoard][coluna]) d[state.activeBoard][coluna] = [];
-    d[state.activeBoard][coluna].unshift(card);
-    return d;
-  });
-  setState({ showNew: false });
-};
-
-window.moveCard = (id, direction) => {
-  const cols = BOARDS[state.activeBoard].columns;
-  let colIdx = -1, cardColId = null, card = null;
-  for (const [ci, col] of cols.entries()) {
-    const found = (state.data[state.activeBoard][col.id] || []).find(c => c.id === id);
-    if (found) { colIdx = ci; cardColId = col.id; card = found; break; }
-  }
-  const target = cols[colIdx + direction];
-  if (!target || !card) return;
-  updateData(d => {
-    d[state.activeBoard][cardColId] = d[state.activeBoard][cardColId].filter(c => c.id !== id);
-    d[state.activeBoard][target.id].unshift(card);
-    return d;
-  });
-};
-
-window.sendQuery = async () => {
-  const val = document.getElementById("queryInput")?.value?.trim();
-  if (!val || state.queryStatus === "thinking") return;
-  setState({ queryStatus: "thinking", queryResult: null });
-  try {
-    const r = await consultaKanban(val, state.data);
-    setState({ queryResult: r, queryStatus: "done" });
-    document.getElementById("queryInput").value = "";
-  } catch(_) { setState({ queryResult: "Erro ao consultar.", queryStatus: "error" }); }
-};
-
-window.quickQuery = async (q) => {
-  setState({ queryStatus: "thinking", queryResult: null });
-  try { const r = await consultaKanban(q, state.data); setState({ queryResult: r, queryStatus: "done" }); }
-  catch(_) { setState({ queryResult: "Erro ao consultar.", queryStatus: "error" }); }
-};
-
-window.sendCmd = async () => {
-  const val = document.getElementById("cmdInput")?.value?.trim();
-  if (!val || state.cmdStatus === "thinking") return;
-  setState({ cmdStatus: "thinking", cmdResult: null });
-  try {
-    const result = await interpretCommand(val, state.data);
-    if (result.acoes?.length > 0) {
-      const next = applyActions(state.data, result.acoes);
-      const log = [{ time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}), msg: result.resumo }, ...state.aiLog.slice(0, 9)];
-      setState({ data: next, cmdResult: { ok: true, msg: result.resumo }, cmdStatus: "done", aiLog: log });
-      persist(next);
-      document.getElementById("cmdInput").value = "";
+  // KANBAN
+  html += '<div style="overflow-x:auto;"><div style="display:flex;gap:12px;min-width:max-content;">';
+  board.cols.forEach(function(col, colIdx) {
+    var cards = bdata[col.id] || [];
+    html += '<div style="width:265px;flex-shrink:0;">';
+    html += '<div class="col-header" style="border-top:3px solid ' + col.color + ';">';
+    html += '<div style="display:flex;align-items:center;gap:7px;"><div style="width:7px;height:7px;border-radius:50%;background:' + col.color + ';box-shadow:0 0 7px ' + col.color + ';"></div>';
+    html += '<span style="font-size:11px;font-weight:700;color:#cbd5e1;">' + col.label + '</span></div>';
+    html += '<span style="background:' + col.color + '1a;color:' + col.color + ';border:1px solid ' + col.color + '35;border-radius:11px;font-size:10px;font-weight:700;padding:1px 7px;">' + cards.length + '</span></div>';
+    html += '<div class="col-body">';
+    if(cards.length === 0) {
+      html += '<div class="empty">vazio</div>';
     } else {
-      setState({ cmdResult: { ok: false, msg: result.resumo || "Não entendi." }, cmdStatus: "done" });
+      cards.forEach(function(card) {
+        var prog = progress(card.checklist);
+        var allItems = []; card.checklist.forEach(function(c){ c.items.forEach(function(i){ allItems.push(i); }); });
+        var doneItems = allItems.filter(function(i){ return i.done; }).length;
+        var progColor = prog===100?"#4ade80":prog>60?"#a78bfa":prog>30?"#fbbf24":"#38bdf8";
+        html += '<div class="card" style="border-left:3px solid ' + col.color + ';" data-card-id="' + card.id + '" data-col-id="' + col.id + '">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;">';
+        html += '<div style="flex:1;min-width:0;margin-right:6px;"><div style="font-family:monospace;font-weight:800;font-size:14px;color:#f1f5f9;letter-spacing:1px;">' + card.placa + '</div>';
+        html += '<div style="font-size:11px;color:#475569;margin-top:1px;">' + card.modelo + '</div></div>';
+        if(card.oficina) html += '<span class="chip">📍 ' + card.oficina + '</span>';
+        html += '</div>';
+        if(card.consultor) html += '<div style="font-size:10px;color:#64748b;margin-bottom:4px;">👤 ' + card.consultor + '</div>';
+        if(card.observacoes) html += '<div style="font-size:11px;color:#475569;line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:2px;">' + card.observacoes + '</div>';
+        html += '<div style="margin-top:9px;"><div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:3px;font-family:monospace;"><span>PROGRESSO</span><span style="color:' + progColor + ';">' + prog + '%</span></div>';
+        html += '<div style="height:4px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;"><div style="height:100%;width:' + prog + '%;background:' + progColor + ';border-radius:3px;transition:width 0.4s;"></div></div></div>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;">';
+        html += '<span style="font-size:9px;color:#334155;font-family:monospace;">✓ ' + doneItems + '/' + allItems.length + '</span>';
+        html += '<div style="display:flex;gap:3px;">';
+        if(colIdx > 0) html += '<button class="move-btn" data-card-id="' + card.id + '" data-dir="-1">◀</button>';
+        if(colIdx < board.cols.length-1) html += '<button class="move-btn" data-card-id="' + card.id + '" data-dir="1">▶</button>';
+        html += '</div></div></div>';
+      });
     }
-  } catch(_) { setState({ cmdResult: { ok: false, msg: "Erro ao processar." }, cmdStatus: "error" }); }
-};
+    html += '</div></div>';
+  });
+  html += '</div></div></div>';
 
-window.fillCmd = (text) => {
-  const el = document.getElementById("cmdInput");
-  if (el) { el.value = text; el.focus(); }
-};
+  // MODAL EDITAR
+  if(S.editCard) {
+    var card = S.editCard;
+    var colId = S.editColId;
+    var prog = progress(card.checklist);
+    var progColor = prog===100?"#4ade80":prog>60?"#a78bfa":prog>30?"#fbbf24":"#38bdf8";
+    html += '<div class="modal-bg" id="modal-edit-bg">';
+    html += '<div class="modal" onclick="event.stopPropagation()">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;">';
+    html += '<div><div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:3px;">EDITAR CARD</div>';
+    html += '<div style="color:#f1f5f9;font-size:17px;font-weight:800;font-family:monospace;">' + card.placa + '</div></div>';
+    html += '<button id="btn-close-edit" class="btn" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#64748b;width:32px;height:32px;padding:0;">✕</button></div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">';
+    html += '<div><label class="label">Placa</label><input class="input" id="e-placa" value="' + (card.placa||"") + '"/></div>';
+    html += '<div><label class="label">Modelo</label><input class="input" id="e-modelo" value="' + (card.modelo||"") + '"/></div>';
+    html += '<div><label class="label">Consultor</label><input class="input" id="e-consultor" value="' + (card.consultor||"") + '"/></div>';
+    html += '<div><label class="label">Oficina / Local</label><input class="input" id="e-oficina" value="' + (card.oficina||"") + '" placeholder="Ex: Box 3, Funilaria"/></div>';
+    html += '<div><label class="label">Prioridade</label><select class="input" id="e-prioridade">';
+    [{id:"baixa",l:"Baixa"},{id:"media",l:"Média"},{id:"alta",l:"Alta"},{id:"urgente",l:"Urgente"}].forEach(function(p){
+      html += '<option value="' + p.id + '"' + (card.prioridade===p.id?" selected":"") + '>' + p.l + '</option>';
+    });
+    html += '</select></div>';
+    html += '<div><label class="label">Etapa</label><select class="input" id="e-coluna">';
+    BOARDS[S.board].cols.forEach(function(c){
+      html += '<option value="' + c.id + '"' + (colId===c.id?" selected":"") + '>' + c.label + '</option>';
+    });
+    html += '</select></div></div>';
+    html += '<div style="margin-bottom:14px;"><label class="label">Observações</label>';
+    html += '<textarea class="input" id="e-obs" style="height:68px;resize:vertical;">' + (card.observacoes||"") + '</textarea></div>';
+    html += '<div><div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:3px;font-family:monospace;"><span>PROGRESSO</span><span style="color:' + progColor + ';">' + prog + '%</span></div>';
+    html += '<div style="height:4px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;"><div style="height:100%;width:' + prog + '%;background:' + progColor + ';border-radius:3px;"></div></div></div>';
+    html += '<div style="margin-top:18px;"><div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:10px;">CHECKLIST</div>';
+    card.checklist.forEach(function(cat, ci) {
+      html += '<div style="margin-bottom:14px;"><div style="color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">' + cat.cat + '</div>';
+      html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">';
+      cat.items.forEach(function(item, ii) {
+        var bg = item.done?"rgba(74,222,128,0.08)":"rgba(255,255,255,0.03)";
+        var bdr = item.done?"rgba(74,222,128,0.25)":"rgba(255,255,255,0.06)";
+        var col2 = item.done?"#4ade80":"#64748b";
+        var td = item.done?"line-through":"none";
+        html += '<label class="check-label" style="background:' + bg + ';border:1px solid ' + bdr + ';">';
+        html += '<input type="checkbox" ' + (item.done?"checked":"") + ' class="check-item" data-ci="' + ci + '" data-ii="' + ii + '" style="accent-color:#4ade80;width:13px;height:13px;"/>';
+        html += '<span style="font-size:11px;color:' + col2 + ';text-decoration:' + td + ';">' + item.label + '</span></label>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div>';
+    html += '<div style="display:flex;gap:9px;margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.07);">';
+    html += '<button id="btn-delete" class="btn" style="background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;">🗑 Excluir</button>';
+    html += '<button id="btn-save" class="btn" style="flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;">✓ Salvar</button>';
+    html += '</div></div></div>';
+  }
 
+  // MODAL NOVO
+  if(S.showNew) {
+    html += '<div class="modal-bg" id="modal-new-bg">';
+    html += '<div class="modal" onclick="event.stopPropagation()">';
+    html += '<div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:3px;">NOVO VEÍCULO</div>';
+    html += '<div style="color:#f1f5f9;font-size:17px;font-weight:800;margin-bottom:20px;">Adicionar ao Kanban</div>';
+    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">';
+    html += '<div><label class="label">Placa *</label><input class="input" id="n-placa" placeholder="ABC-1234"/></div>';
+    html += '<div><label class="label">Modelo *</label><input class="input" id="n-modelo" placeholder="Toyota Corolla"/></div>';
+    html += '<div><label class="label">Consultor</label><input class="input" id="n-consultor" placeholder="Nome"/></div>';
+    html += '<div><label class="label">Oficina / Local</label><input class="input" id="n-oficina" placeholder="Ex: Box 3"/></div>';
+    html += '<div><label class="label">Prioridade</label><select class="input" id="n-prioridade">';
+    [{id:"baixa",l:"Baixa"},{id:"media",l:"Média"},{id:"alta",l:"Alta"},{id:"urgente",l:"Urgente"}].forEach(function(p){
+      html += '<option value="' + p.id + '"' + (p.id==="media"?" selected":"") + '>' + p.l + '</option>';
+    });
+    html += '</select></div>';
+    html += '<div style="grid-column:1/-1"><label class="label">Etapa inicial</label><select class="input" id="n-coluna">';
+    BOARDS[S.board].cols.forEach(function(c){ html += '<option value="' + c.id + '">' + c.label + '</option>'; });
+    html += '</select></div></div>';
+    html += '<div style="margin-bottom:20px;"><label class="label">Observações</label><textarea class="input" id="n-obs" style="height:60px;resize:vertical;" placeholder="Notas iniciais..."></textarea></div>';
+    html += '<div style="display:flex;gap:9px;">';
+    html += '<button id="btn-cancel-new" class="btn" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#64748b;">Cancelar</button>';
+    html += '<button id="btn-add" class="btn" style="flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;">+ Adicionar</button>';
+    html += '</div></div></div>';
+  }
+
+  return html;
+}
+
+function attachEvents() {
+  if(!S.data) return;
+
+  // TABS
+  document.querySelectorAll("[data-board]").forEach(function(el){
+    el.addEventListener("click", function(){ setState({board:el.dataset.board, editCard:null, showNew:false}); });
+  });
+
+  // NOVO
+  var btnNovo = document.getElementById("btn-novo");
+  if(btnNovo) btnNovo.addEventListener("click", function(){ setState({showNew:true}); });
+
+  var btnCancelNew = document.getElementById("btn-cancel-new");
+  if(btnCancelNew) btnCancelNew.addEventListener("click", function(){ setState({showNew:false}); });
+
+  var modalNewBg = document.getElementById("modal-new-bg");
+  if(modalNewBg) modalNewBg.addEventListener("click", function(e){ if(e.target===modalNewBg) setState({showNew:false}); });
+
+  var btnAdd = document.getElementById("btn-add");
+  if(btnAdd) btnAdd.addEventListener("click", function(){
+    var placa = (document.getElementById("n-placa").value||"").toUpperCase().trim();
+    var modelo = (document.getElementById("n-modelo").value||"").trim();
+    if(!placa||!modelo) return;
+    var coluna = document.getElementById("n-coluna").value;
+    var card = {
+      id:uid(), placa:placa, modelo:modelo,
+      prioridade:document.getElementById("n-prioridade").value,
+      consultor:document.getElementById("n-consultor").value||"",
+      oficina:document.getElementById("n-oficina").value||"",
+      observacoes:document.getElementById("n-obs").value||"",
+      checklist:newChecklist(S.board),
+      criadoEm:new Date().toISOString()
+    };
+    update(function(d){ if(!d[S.board][coluna]) d[S.board][coluna]=[]; d[S.board][coluna].unshift(card); });
+    setState({showNew:false});
+  });
+
+  // CARDS
+  document.querySelectorAll(".card").forEach(function(el){
+    el.addEventListener("click", function(){
+      var id = el.dataset.cardId;
+      var colId = el.dataset.colId;
+      var board = S.data[S.board];
+      var card = null;
+      Object.values(board).forEach(function(col){ var c = col.find(function(c){ return c.id===id; }); if(c) card=c; });
+      if(card) setState({editCard:JSON.parse(JSON.stringify(card)), editColId:colId});
+    });
+  });
+
+  // MOVE BUTTONS
+  document.querySelectorAll(".move-btn").forEach(function(el){
+    el.addEventListener("click", function(e){
+      e.stopPropagation();
+      var id = el.dataset.cardId;
+      var dir = parseInt(el.dataset.dir);
+      var cols = BOARDS[S.board].cols;
+      var colIdx = -1; var cardColId = null; var card = null;
+      cols.forEach(function(col, i){
+        var c = (S.data[S.board][col.id]||[]).find(function(c){ return c.id===id; });
+        if(c){ colIdx=i; cardColId=col.id; card=c; }
+      });
+      var target = cols[colIdx+dir];
+      if(!target||!card) return;
+      update(function(d){
+        d[S.board][cardColId] = d[S.board][cardColId].filter(function(c){ return c.id!==id; });
+        d[S.board][target.id].unshift(card);
+      });
+    });
+  });
+
+  // EDIT MODAL
+  var btnCloseEdit = document.getElementById("btn-close-edit");
+  if(btnCloseEdit) btnCloseEdit.addEventListener("click", function(){ setState({editCard:null}); });
+
+  var modalEditBg = document.getElementById("modal-edit-bg");
+  if(modalEditBg) modalEditBg.addEventListener("click", function(e){ if(e.target===modalEditBg) setState({editCard:null}); });
+
+  // CHECK ITEMS
+  document.querySelectorAll(".check-item").forEach(function(el){
+    el.addEventListener("change", function(){
+      var ci = parseInt(el.dataset.ci);
+      var ii = parseInt(el.dataset.ii);
+      var card = JSON.parse(JSON.stringify(S.editCard));
+      card.checklist[ci].items[ii].done = !card.checklist[ci].items[ii].done;
+      setState({editCard:card});
+    });
+  });
+
+  var btnSave = document.getElementById("btn-save");
+  if(btnSave) btnSave.addEventListener("click", function(){
+    var card = JSON.parse(JSON.stringify(S.editCard));
+    card.placa = (document.getElementById("e-placa").value||"").toUpperCase();
+    card.modelo = document.getElementById("e-modelo").value||"";
+    card.consultor = document.getElementById("e-consultor").value||"";
+    card.oficina = document.getElementById("e-oficina").value||"";
+    card.prioridade = document.getElementById("e-prioridade").value;
+    card.observacoes = document.getElementById("e-obs").value||"";
+    var newColId = document.getElementById("e-coluna").value;
+    var oldColId = S.editColId;
+    update(function(d){
+      d[S.board][oldColId] = d[S.board][oldColId].filter(function(c){ return c.id!==card.id; });
+      if(!d[S.board][newColId]) d[S.board][newColId]=[];
+      d[S.board][newColId].push(card);
+    });
+    setState({editCard:null});
+  });
+
+  var btnDelete = document.getElementById("btn-delete");
+  if(btnDelete) btnDelete.addEventListener("click", function(){
+    var id = S.editCard.id;
+    update(function(d){ Object.keys(d[S.board]).forEach(function(col){ d[S.board][col]=d[S.board][col].filter(function(c){ return c.id!==id; }); }); });
+    setState({editCard:null});
+  });
+
+  // QUERY IA
+  var queryInput = document.getElementById("query-input");
+  var btnQuery = document.getElementById("btn-query");
+  if(queryInput) queryInput.addEventListener("keydown", function(e){ if(e.key==="Enter") runQuery(queryInput.value); });
+  if(btnQuery) btnQuery.addEventListener("click", function(){ if(queryInput) runQuery(queryInput.value); });
+
+  document.querySelectorAll(".sugestao").forEach(function(el){
+    el.addEventListener("click", function(){ runQuery(el.dataset.query); });
+  });
+
+  // CMD IA
+  var cmdInput = document.getElementById("cmd-input");
+  var btnCmd = document.getElementById("btn-cmd");
+  if(cmdInput) cmdInput.addEventListener("keydown", function(e){ if(e.key==="Enter") runCmd(cmdInput.value); });
+  if(btnCmd) btnCmd.addEventListener("click", function(){ if(cmdInput) runCmd(cmdInput.value); });
+
+  document.querySelectorAll(".example").forEach(function(el){
+    el.addEventListener("click", function(){ var inp = document.getElementById("cmd-input"); if(inp){ inp.value=el.dataset.cmd; inp.focus(); } });
+  });
+}
+
+async function runQuery(text) {
+  if(!text||!text.trim()||S.queryLoading) return;
+  setState({queryLoading:true, queryResult:null});
+  try {
+    var r = await consultaIA(text.trim());
+    setState({queryLoading:false, queryResult:r});
+  } catch(e) {
+    setState({queryLoading:false, queryResult:"Erro: " + e.message});
+  }
+}
+
+async function runCmd(text) {
+  if(!text||!text.trim()||S.cmdLoading) return;
+  setState({cmdLoading:true, cmdResult:null});
+  try {
+    var r = await interpretCmd(text.trim());
+    if(r.acoes && r.acoes.length > 0) {
+      applyActions(r.acoes);
+      var log = [{time:new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}), msg:r.resumo}].concat(S.aiLog.slice(0,9));
+      setState({cmdLoading:false, cmdResult:{ok:true,msg:r.resumo}, aiLog:log});
+    } else {
+      setState({cmdLoading:false, cmdResult:{ok:false,msg:r.resumo||"Não entendi o comando."}});
+    }
+  } catch(e) {
+    setState({cmdLoading:false, cmdResult:{ok:false,msg:"Erro: " + e.message}});
+  }
+}
+
+render();
 </script>
 </body>
 </html>
