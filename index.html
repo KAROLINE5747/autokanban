@@ -33,9 +33,9 @@ const firebaseConfig = {
   appId: "1:218382116890:web:084402591f320e690809a3"
 };
 
-// ─── CHAVE ANTHROPIC ──────────────────────────────────────────────────────────
-// ⚠️ Cole sua chave aqui (console.anthropic.com → API Keys)
-const ANTHROPIC_KEY = "SUA_CHAVE_ANTHROPIC_AQUI";
+// ─── CHAVE GEMINI ────────────────────────────────────────────────────────────
+// ⚠️ Cole sua chave do Google AI Studio (aistudio.google.com → Get API Key)
+const GEMINI_KEY = "AIzaSyD9I8nfCH3uBimiI9TQ9hry1CZB8iTmaKw";
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
@@ -137,13 +137,15 @@ Formato: { "acoes":[...], "resumo":"descrição curta" }
 
 ESTADO ATUAL: ${JSON.stringify(currentData, null, 2).slice(0, 3000)}`;
 
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const prompt = systemPrompt + "\n\nComando do usuário: " + text;
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
     method: "POST",
-    headers: { "Content-Type":"application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
-    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, system:systemPrompt, messages:[{role:"user",content:text}] }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
   const d = await r.json();
-  try { return JSON.parse((d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim()); }
+  const raw = d.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+  try { return JSON.parse(raw.replace(/```json|```/g,"").trim()); }
   catch(_) { return { acoes:[], resumo:"Não entendi o comando." }; }
 }
 
@@ -159,15 +161,20 @@ async function consultaKanban(pergunta, data) {
       }
     }
   }
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
+  const prompt = `Você é assistente de consulta do AutoKanban de uma concessionária. Responda perguntas sobre veículos de forma clara com emojis. Responda em português.
+
+DADOS (${cards.length} veículos):
+${JSON.stringify(cards, null, 2)}
+
+Pergunta: ${pergunta}`;
+
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`, {
     method: "POST",
-    headers: { "Content-Type":"application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
-    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1500,
-      system:`Você é assistente de consulta do AutoKanban de uma concessionária. Responda perguntas sobre veículos de forma clara com emojis. Responda em português.\n\nDADOS (${cards.length} veículos):\n${JSON.stringify(cards,null,2)}`,
-      messages:[{role:"user",content:pergunta}] }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
   });
   const d = await r.json();
-  return d.content?.[0]?.text || "Não consegui processar.";
+  return d.candidates?.[0]?.content?.parts?.[0]?.text || "Não consegui processar.";
 }
 
 function applyActions(data, acoes) {
