@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutoKanban — Concessionária</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #060c16; font-family: 'Segoe UI', system-ui, sans-serif; color: #f1f5f9; }
+    input, select, textarea, button { font-family: inherit; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Firebase -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+
+// ─── CONFIGURAÇÃO FIREBASE ────────────────────────────────────────────────────
+// ⚠️ Substitua pelos seus dados do Firebase Console
+const firebaseConfig = {
+  apiKey: "AIzaSyC5iP4vJ9YF2QSPSE5Vi04TVU5Nh5A8oKA",
+  authDomain: "manutencao-f00be.firebaseapp.com",
+  databaseURL: "https://manutencao-f00be-default-rtdb.firebaseio.com",
+  projectId: "manutencao-f00be",
+  storageBucket: "manutencao-f00be.firebasestorage.app",
+  messagingSenderId: "218382116890",
+  appId: "1:218382116890:web:084402591f320e690809a3"
+};
+
+// ─── CHAVE ANTHROPIC ──────────────────────────────────────────────────────────
+// ⚠️ Cole sua chave aqui (console.anthropic.com → API Keys)
+const ANTHROPIC_KEY = "SUA_CHAVE_ANTHROPIC_AQUI";
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getDatabase(firebaseApp);
+const KANBAN_REF = "autokanban/dados";
+
+// ─── CONFIGURAÇÃO DO KANBAN ───────────────────────────────────────────────────
+const BOARDS = {
+  manutencao: {
+    label: "Manutenção", icon: "🔧",
+    columns: [
+      { id: "recepcao",     label: "Recepção",     color: "#38bdf8" },
+      { id: "revisao",      label: "Revisão",      color: "#a78bfa" },
+      { id: "pintura",      label: "Pintura",      color: "#fbbf24" },
+      { id: "outros",       label: "Outros",       color: "#34d399" },
+      { id: "higienizacao", label: "Higienização", color: "#f472b6" },
+      { id: "finalizado",   label: "Finalizado",   color: "#4ade80" },
+    ],
+  },
+  posVenda: {
+    label: "Pós-venda / Garantia", icon: "🛡️",
+    columns: [
+      { id: "recepcao_os",       label: "Recepção/OS",       color: "#38bdf8" },
+      { id: "diagnostico",       label: "Diagnóstico",       color: "#c084fc" },
+      { id: "manutencao_reparo", label: "Manutenção/Reparo", color: "#fbbf24" },
+      { id: "aguardando_peca",   label: "Aguardando Peça",   color: "#fb923c" },
+      { id: "pronto",            label: "Pronto",            color: "#4ade80" },
+    ],
+  },
+};
+
+const CHECKLIST_TEMPLATES = {
+  manutencao: [
+    { cat: "Motor",     items: ["Troca de óleo","Filtro de óleo","Filtro de ar","Velas","Correia dentada"] },
+    { cat: "Freios",    items: ["Pastilhas dianteiras","Pastilhas traseiras","Discos","Fluido de freio"] },
+    { cat: "Elétrica",  items: ["Bateria","Alternador","Luzes","Sensor lambda"] },
+    { cat: "Suspensão", items: ["Amortecedores","Molas","Buchas","Alinhamento","Balanceamento"] },
+  ],
+  posVenda: [
+    { cat: "Diagnóstico", items: ["Leitura de falhas","Teste de pressão","Inspeção visual","Teste de estrada"] },
+    { cat: "Garantia",    items: ["Documento de garantia","NF das peças","Aprovação fábrica","Fotos registradas"] },
+    { cat: "Reparo",      items: ["Peças solicitadas","Peças recebidas","Mão de obra executada","Teste final"] },
+    { cat: "Entrega",     items: ["Lavagem","Verificação retrovisor","Documentação cliente","Assinatura OS"] },
+  ],
+};
+
+const PRIORITIES = [
+  { id: "baixa",   label: "Baixa",   color: "#4ade80", bg: "rgba(74,222,128,0.12)"  },
+  { id: "media",   label: "Média",   color: "#fbbf24", bg: "rgba(251,191,36,0.12)"  },
+  { id: "alta",    label: "Alta",    color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  { id: "urgente", label: "Urgente", color: "#ef4444", bg: "rgba(239,68,68,0.18)"   },
+];
+
+// ─── UTILS ────────────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+function buildChecklist(boardId) {
+  return (CHECKLIST_TEMPLATES[boardId] || []).map(c => ({
+    cat: c.cat,
+    items: c.items.map(label => ({ id: uid(), label, done: false })),
+  }));
+}
+
+function calcProgress(checklist = []) {
+  const all = checklist.flatMap(c => c.items);
+  if (!all.length) return 0;
+  return Math.round(all.filter(i => i.done).length / all.length * 100);
+}
+
+function defaultState() {
+  return {
+    manutencao: { recepcao:[], revisao:[], pintura:[], outros:[], higienizacao:[], finalizado:[] },
+    posVenda:   { recepcao_os:[], diagnostico:[], manutencao_reparo:[], aguardando_peca:[], pronto:[] },
+  };
+}
+
+async function saveData(data) {
+  await set(ref(db, KANBAN_REF), data);
+}
+
+// ─── AI ───────────────────────────────────────────────────────────────────────
+async function interpretCommand(text, currentData) {
+  const systemPrompt = `Você é o assistente do AutoKanban de uma concessionária.
+Receba texto em linguagem natural e retorne SOMENTE JSON válido.
+
+ESTRUTURA:
+Board "manutencao" → colunas: recepcao, revisao, pintura, outros, higienizacao, finalizado
+Board "posVenda" → colunas: recepcao_os, diagnostico, manutencao_reparo, aguardando_peca, pronto
+Campos: { id, placa, modelo, prioridade (baixa/media/alta/urgente), observacoes, consultor, oficina, checklist, criadoEm }
+
+AÇÕES:
+1. { "acao":"adicionar", "board":"manutencao"|"posVenda", "coluna":"...", "placa":"...", "modelo":"...", "prioridade":"...", "observacoes":"...", "consultor":"...", "oficina":"..." }
+2. { "acao":"mover", "placa":"...", "coluna_destino":"...", "board":"..." }
+3. { "acao":"atualizar", "placa":"...", "campos":{ "observacoes":"...", "prioridade":"...", "consultor":"...", "oficina":"..." } }
+4. { "acao":"checklist", "placa":"...", "item":"...", "done":true|false }
+5. { "acao":"remover", "placa":"..." }
+
+REGRAS: Normalize placas para maiúsculas com hífen. Retorne APENAS JSON sem markdown.
+Formato: { "acoes":[...], "resumo":"descrição curta" }
+
+ESTADO ATUAL: ${JSON.stringify(currentData, null, 2).slice(0, 3000)}`;
+
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type":"application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, system:systemPrompt, messages:[{role:"user",content:text}] }),
+  });
+  const d = await r.json();
+  try { return JSON.parse((d.content?.[0]?.text||"{}").replace(/```json|```/g,"").trim()); }
+  catch(_) { return { acoes:[], resumo:"Não entendi o comando." }; }
+}
+
+async function consultaKanban(pergunta, data) {
+  const cards = [];
+  for (const [boardId, board] of Object.entries(data)) {
+    for (const col of (BOARDS[boardId]?.columns||[])) {
+      for (const card of (board[col.id]||[])) {
+        cards.push({ board: BOARDS[boardId].label, etapa: col.label, placa: card.placa, modelo: card.modelo,
+          prioridade: card.prioridade, consultor: card.consultor||"—", oficina: card.oficina||"—",
+          observacoes: card.observacoes||"", progresso: calcProgress(card.checklist)+"%",
+          pendentes: card.checklist.flatMap(c=>c.items.filter(i=>!i.done).map(i=>i.label)) });
+      }
+    }
+  }
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type":"application/json", "x-api-key": ANTHROPIC_KEY, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+    body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1500,
+      system:`Você é assistente de consulta do AutoKanban de uma concessionária. Responda perguntas sobre veículos de forma clara com emojis. Responda em português.\n\nDADOS (${cards.length} veículos):\n${JSON.stringify(cards,null,2)}`,
+      messages:[{role:"user",content:pergunta}] }),
+  });
+  const d = await r.json();
+  return d.content?.[0]?.text || "Não consegui processar.";
+}
+
+function applyActions(data, acoes) {
+  const d = JSON.parse(JSON.stringify(data));
+  for (const a of acoes) {
+    if (a.acao==="adicionar") {
+      const board=a.board||"manutencao", col=a.coluna||Object.keys(d[board])[0];
+      if(!d[board][col])d[board][col]=[];
+      d[board][col].unshift({ id:uid(), placa:(a.placa||"SEM-PLACA").toUpperCase(), modelo:a.modelo||"Veículo",
+        prioridade:a.prioridade||"media", observacoes:a.observacoes||"", consultor:a.consultor||"",
+        oficina:a.oficina||"", checklist:buildChecklist(board), criadoEm:new Date().toISOString() });
+    }
+    if (a.acao==="mover") {
+      const placa=a.placa?.toUpperCase(), board=a.board||"manutencao";
+      let found=null, fromCol=null;
+      for(const [col,cards] of Object.entries(d[board])){const i=cards.findIndex(c=>c.placa===placa);if(i!==-1){found=cards.splice(i,1)[0];fromCol=col;break;}}
+      if(found&&a.coluna_destino){if(!d[board][a.coluna_destino])d[board][a.coluna_destino]=[];d[board][a.coluna_destino].unshift(found);}
+      else if(found&&fromCol)d[board][fromCol].unshift(found);
+    }
+    if (a.acao==="atualizar") {
+      const placa=a.placa?.toUpperCase();
+      for(const board of Object.keys(d))for(const col of Object.keys(d[board])){const card=d[board][col].find(c=>c.placa===placa);if(card)Object.assign(card,a.campos||{});}
+    }
+    if (a.acao==="checklist") {
+      const placa=a.placa?.toUpperCase();
+      for(const board of Object.keys(d))for(const col of Object.keys(d[board])){
+        const card=d[board][col].find(c=>c.placa===placa);
+        if(card)for(const cat of card.checklist){const item=cat.items.find(i=>i.label.toLowerCase().includes((a.item||"").toLowerCase()));if(item)item.done=a.done??true;}
+      }
+    }
+    if (a.acao==="remover") {
+      const placa=a.placa?.toUpperCase();
+      for(const board of Object.keys(d))for(const col of Object.keys(d[board]))d[board][col]=d[board][col].filter(c=>c.placa!==placa);
+    }
+  }
+  return d;
+}
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let state = {
+  data: null,
+  activeBoard: "manutencao",
+  editCard: null,
+  showNew: false,
+  syncStatus: "ok",
+  lastSync: null,
+  aiLog: [],
+  queryResult: null,
+  queryStatus: "idle",
+  cmdStatus: "idle",
+  cmdResult: null,
+};
+
+function setState(patch) {
+  Object.assign(state, patch);
+  render();
+}
+
+// ─── FIREBASE LISTENER ────────────────────────────────────────────────────────
+onValue(ref(db, KANBAN_REF), (snap) => {
+  const val = snap.val();
+  setState({ data: val || defaultState(), lastSync: new Date(), syncStatus: "ok" });
+});
+
+async function persist(newData) {
+  setState({ syncStatus: "saving" });
+  try { await saveData(newData); setState({ syncStatus: "ok", lastSync: new Date() }); }
+  catch(_) { setState({ syncStatus: "error" }); }
+}
+
+function updateData(fn) {
+  const next = fn(JSON.parse(JSON.stringify(state.data)));
+  setState({ data: next });
+  persist(next);
+}
+
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+const S = {
+  input: "background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:#f1f5f9;font-size:13px;padding:9px 12px;outline:none;width:100%;box-sizing:border-box;",
+  btn: "padding:9px 16px;border-radius:9px;font-size:13px;cursor:pointer;transition:all 0.2s;border:none;font-family:inherit;",
+  label: "display:block;font-size:10px;letter-spacing:1.5px;color:#64748b;text-transform:uppercase;margin-bottom:5px;",
+};
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function render() {
+  if (!state.data) {
+    document.getElementById("root").innerHTML = `
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#334155;">
+        <div style="text-align:center"><div style="font-size:44px;margin-bottom:14px">🔧</div><div style="font-size:12px;letter-spacing:3px">CARREGANDO...</div></div>
+      </div>`;
+    return;
+  }
+
+  const board = BOARDS[state.activeBoard];
+  const boardData = state.data[state.activeBoard];
+  const totalCards = Object.values(boardData).flat().length;
+  const doneKey = state.activeBoard === "manutencao" ? "finalizado" : "pronto";
+  const doneCount = (boardData[doneKey]||[]).length;
+  const syncColor = state.syncStatus==="saving"?"#fbbf24":state.syncStatus==="error"?"#f87171":"#4ade80";
+  const syncLabel = state.syncStatus==="saving"?"⟳ SYNC":state.syncStatus==="error"?"⚠ ERRO":"● AO VIVO";
+
+  document.getElementById("root").innerHTML = `
+  <div style="min-height:100vh;background:#060c16;">
+
+    <!-- HEADER -->
+    <div style="background:rgba(6,12,22,0.97);border-bottom:1px solid rgba(255,255,255,0.06);padding:0 20px;position:sticky;top:0;z-index:100;backdrop-filter:blur(20px);">
+      <div style="max-width:1700px;margin:0 auto;display:flex;align-items:center;gap:16px;height:56px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:9px;">
+          <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border-radius:9px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 18px rgba(139,92,246,0.4);">🚗</div>
+          <div>
+            <div style="font-weight:800;font-size:14px;background:linear-gradient(135deg,#e2e8f0,#94a3b8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">AutoKanban</div>
+            <div style="font-size:8px;color:#334155;letter-spacing:2px;">CONCESSIONÁRIA</div>
+          </div>
+        </div>
+        ${Object.entries(BOARDS).map(([id,b])=>`
+          <button onclick="switchBoard('${id}')" style="${S.btn}background:${state.activeBoard===id?"linear-gradient(135deg,rgba(99,102,241,0.25),rgba(139,92,246,0.25))":"transparent"};border:1px solid ${state.activeBoard===id?"rgba(139,92,246,0.45)":"transparent"};color:${state.activeBoard===id?"#c4b5fd":"#475569"};font-weight:${state.activeBoard===id?700:400};display:flex;align-items:center;gap:5px;">
+            ${b.icon} ${b.label}
+          </button>`).join("")}
+        <div style="flex:1"></div>
+        <div style="display:flex;gap:12px;align-items:center;font-size:11px;color:#334155;flex-wrap:wrap;">
+          <span><span style="color:#94a3b8;font-weight:700;">${totalCards}</span> veículos</span>
+          <span><span style="color:#4ade80;font-weight:700;">${doneCount}</span> prontos</span>
+          <span style="font-size:9px;color:${syncColor};letter-spacing:1px;">${syncLabel}</span>
+          ${state.lastSync?`<span style="font-size:9px;color:#1e293b;">${state.lastSync.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit"})}</span>`:""}
+        </div>
+        <button onclick="openNew()" style="${S.btn}background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;font-size:12px;box-shadow:0 4px 14px rgba(139,92,246,0.3);white-space:nowrap;">+ Novo Veículo</button>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div style="padding:18px 20px 32px;max-width:1700px;margin:0 auto;">
+
+      <!-- CONSULTA IA -->
+      <div style="background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.2);border-radius:14px;padding:16px 20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#059669,#10b981);display:flex;align-items:center;justify-content:center;font-size:15px;box-shadow:0 0 14px rgba(16,185,129,0.35);">🔍</div>
+          <div>
+            <div style="color:#6ee7b7;font-size:12px;font-weight:700;">Consulta Inteligente</div>
+            <div style="color:#475569;font-size:10px;letter-spacing:1px;">PERGUNTE QUALQUER COISA SOBRE OS VEÍCULOS</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:10px;">
+          <input id="queryInput" style="${S.input}flex:1;border:1px solid rgba(16,185,129,0.25);" placeholder='Ex: "Quais carros faltam higienizar?" ou "Resumo geral"'
+            onkeydown="if(event.key==='Enter')sendQuery()" />
+          <button onclick="sendQuery()" style="${S.btn}background:linear-gradient(135deg,#059669,#10b981);color:#fff;font-weight:700;white-space:nowrap;min-width:110px;">
+            ${state.queryStatus==="thinking"?"⟳ IA...":"🔍 Consultar"}
+          </button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:${state.queryResult?12:0}px;">
+          ${["Quais carros estão na recepção?","Quais carros faltam higienizar?","Mostre todos os carros do Pós-venda","Quais carros têm prioridade urgente?","Resumo geral de tudo","Quais carros estão aguardando peça?","Quais carros estão na pintura?"].map(s=>`
+            <button onclick="quickQuery('${s.replace(/'/g,"\\'")}'')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;"
+              onmouseover="this.style.color='#6ee7b7';this.style.borderColor='rgba(16,185,129,0.35)'"
+              onmouseout="this.style.color='#475569';this.style.borderColor='rgba(16,185,129,0.15)'">${s}</button>`).join("")}
+        </div>
+        ${state.queryResult?`<div style="margin-top:12px;padding:14px 16px;background:rgba(0,0,0,0.25);border:1px solid rgba(16,185,129,0.15);border-radius:10px;font-size:13px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap;max-height:340px;overflow-y:auto;">${state.queryResult}</div>`:""}
+      </div>
+
+      <!-- COMANDO IA -->
+      <div style="background:rgba(99,102,241,0.07);border:1px solid rgba(99,102,241,0.2);border-radius:14px;padding:16px 20px;margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <div style="width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 0 14px rgba(139,92,246,0.4);">✦</div>
+          <div>
+            <div style="color:#c4b5fd;font-size:12px;font-weight:700;">Comando em Texto Livre</div>
+            <div style="color:#475569;font-size:10px;letter-spacing:1px;">DESCREVA O QUE QUER FAZER — A IA INTERPRETA</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input id="cmdInput" style="${S.input}flex:1;border:1px solid rgba(99,102,241,0.3);" placeholder='Ex: "Entra o Civic placa MNO-3344 na recepção, urgente"'
+            onkeydown="if(event.key==='Enter')sendCmd()" />
+          <button onclick="sendCmd()" style="${S.btn}background:${state.cmdStatus==="thinking"?"rgba(99,102,241,0.3)":"linear-gradient(135deg,#6366f1,#8b5cf6)"};color:#fff;font-weight:700;white-space:nowrap;min-width:90px;">
+            ${state.cmdStatus==="thinking"?"⟳ IA...":"↵ Enviar"}
+          </button>
+        </div>
+        ${state.cmdResult?`<div style="margin-top:9px;padding:7px 12px;border-radius:8px;background:${state.cmdResult.ok?"rgba(74,222,128,0.08)":"rgba(248,113,113,0.08)"};border:1px solid ${state.cmdResult.ok?"rgba(74,222,128,0.2)":"rgba(248,113,113,0.2)"};font-size:12px;color:${state.cmdResult.ok?"#4ade80":"#f87171"};">${state.cmdResult.ok?"✓ ":"⚠ "}${state.cmdResult.msg}</div>`:""}
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;">
+          ${["Entrada o Fiat Argo 2023 placa DEF-9876 prioridade alta","Move o ABC-1234 para revisão","O HR-V XYZ-5678 está pronto","Atualiza obs do ABC-1234: cliente pediu urgência","Marca troca de óleo como feito no ABC-1234"].map(ex=>`
+            <button onclick="fillCmd('${ex.replace(/'/g,"\\'")}'')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;"
+              onmouseover="this.style.color='#94a3b8';this.style.borderColor='rgba(255,255,255,0.15)'"
+              onmouseout="this.style.color='#475569';this.style.borderColor='rgba(255,255,255,0.08)'">${ex.length>42?ex.slice(0,42)+"…":ex}</button>`).join("")}
+        </div>
+      </div>
+
+      ${state.aiLog.length>0?`
+      <div style="margin-bottom:16px;padding:10px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;">
+        <div style="font-size:9px;color:#334155;letter-spacing:2px;margin-bottom:7px;">HISTÓRICO IA</div>
+        ${state.aiLog.map(l=>`<div style="font-size:11px;color:#475569;display:flex;gap:8px;margin-bottom:2px;"><span style="color:#334155;font-family:monospace;">${l.time}</span><span>${l.msg}</span></div>`).join("")}
+      </div>`:""}
+
+      <!-- KANBAN -->
+      <div style="overflow-x:auto;">
+        <div style="display:flex;gap:12px;min-width:max-content;">
+          ${board.columns.map((col, colIdx) => {
+            const cards = boardData[col.id] || [];
+            return `
+            <div style="width:265px;flex-shrink:0;">
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 13px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-bottom:none;border-radius:9px 9px 0 0;border-top:3px solid ${col.color};">
+                <div style="display:flex;align-items:center;gap:7px;">
+                  <div style="width:7px;height:7px;border-radius:50%;background:${col.color};box-shadow:0 0 7px ${col.color};"></div>
+                  <span style="font-size:11px;font-weight:700;color:#cbd5e1;">${col.label}</span>
+                </div>
+                <span style="background:${col.color}1a;color:${col.color};border:1px solid ${col.color}35;border-radius:11px;font-size:10px;font-weight:700;padding:1px 7px;">${cards.length}</span>
+              </div>
+              <div style="background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.07);border-top:none;border-radius:0 0 9px 9px;padding:9px;display:flex;flex-direction:column;gap:7px;min-height:100px;">
+                ${cards.length===0
+                  ? `<div style="display:flex;align-items:center;justify-content:center;min-height:70px;color:#1e293b;font-size:11px;letter-spacing:1px;border:1px dashed rgba(255,255,255,0.04);border-radius:7px;">vazio</div>`
+                  : cards.map(card => renderCard(card, col.color, colIdx, board.columns.length)).join("")
+                }
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL EDITAR -->
+    ${state.editCard ? renderEditModal() : ""}
+
+    <!-- MODAL NOVO -->
+    ${state.showNew ? renderNewModal() : ""}
+
+  </div>`;
+}
+
+function renderCard(card, colColor, colIdx, totalCols) {
+  const progress = calcProgress(card.checklist);
+  const total = card.checklist.flatMap(c=>c.items).length;
+  const done = card.checklist.flatMap(c=>c.items).filter(i=>i.done).length;
+  const progColor = progress===100?"#4ade80":progress>60?"#a78bfa":progress>30?"#fbbf24":"#38bdf8";
+  return `
+  <div onclick="openCard('${card.id}')"
+    style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-left:3px solid ${colColor};border-radius:9px;padding:13px 13px 11px;cursor:pointer;transition:all 0.18s;"
+    onmouseover="this.style.background='rgba(255,255,255,0.06)';this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 22px rgba(0,0,0,0.3)'"
+    onmouseout="this.style.background='rgba(255,255,255,0.03)';this.style.transform='';this.style.boxShadow=''">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;">
+      <div style="flex:1;min-width:0;margin-right:6px;">
+        <div style="font-family:monospace;font-weight:800;font-size:14px;color:#f1f5f9;letter-spacing:1px;">${card.placa}</div>
+        <div style="font-size:11px;color:#475569;margin-top:1px;">${card.modelo}</div>
+      </div>
+      ${card.oficina?`<span style="font-size:9px;font-weight:700;color:#94a3b8;background:rgba(148,163,184,0.1);border:1px solid rgba(148,163,184,0.2);border-radius:4px;padding:2px 7px;white-space:nowrap;max-width:110px;overflow:hidden;text-overflow:ellipsis;display:inline-block;">📍 ${card.oficina}</span>`:""}
+    </div>
+    ${card.consultor?`<div style="font-size:10px;color:#64748b;margin-bottom:4px;">👤 ${card.consultor}</div>`:""}
+    ${card.observacoes?`<div style="font-size:11px;color:#475569;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;margin-bottom:2px;">${card.observacoes}</div>`:""}
+    <div style="margin-top:9px;">
+      <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:3px;font-family:monospace;">
+        <span>PROGRESSO</span><span style="color:${progColor};">${progress}%</span>
+      </div>
+      <div style="height:4px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;">
+        <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,${progColor}80,${progColor});border-radius:3px;transition:width 0.4s;box-shadow:0 0 6px ${progColor}50;"></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:9px;">
+      <span style="font-size:9px;color:#334155;font-family:monospace;">✓ ${done}/${total}</span>
+      <div style="display:flex;gap:3px;" onclick="event.stopPropagation()">
+        ${colIdx>0?`<button onclick="moveCard('${card.id}',-1)" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#64748b;border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:10px;font-family:inherit;">◀</button>`:""}
+        ${colIdx<totalCols-1?`<button onclick="moveCard('${card.id}',1)" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:#64748b;border-radius:4px;width:22px;height:22px;cursor:pointer;font-size:10px;font-family:inherit;">▶</button>`:""}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderEditModal() {
+  const { card, colId } = state.editCard;
+  const progress = calcProgress(card.checklist);
+  const progColor = progress===100?"#4ade80":progress>60?"#a78bfa":progress>30?"#fbbf24":"#38bdf8";
+  const cols = BOARDS[state.activeBoard].columns;
+  return `
+  <div onclick="closeModal()" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;">
+    <div onclick="event.stopPropagation()" style="background:#0c1220;border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;padding:28px;box-shadow:0 30px 70px rgba(0,0,0,0.7);">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;">
+        <div>
+          <div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:3px;">EDITAR CARD</div>
+          <div style="color:#f1f5f9;font-size:17px;font-weight:800;font-family:monospace;">${card.placa}</div>
+        </div>
+        <button onclick="closeModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#64748b;border-radius:7px;width:32px;height:32px;cursor:pointer;font-size:15px;font-family:inherit;">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        ${[["Placa","placa"],["Modelo","modelo"],["Consultor","consultor"],["Oficina / Local","oficina"]].map(([lbl,key])=>`
+          <div>
+            <label style="${S.label}">${lbl}</label>
+            <input style="${S.input}" id="edit_${key}" value="${(card[key]||"").replace(/"/g,"&quot;")}" placeholder="${key==="oficina"?"Ex: Funilaria, Box 3...":""}"
+              oninput="updateEditField('${key}',this.value)" />
+          </div>`).join("")}
+        <div>
+          <label style="${S.label}">Prioridade</label>
+          <select style="${S.input}" onchange="updateEditField('prioridade',this.value)">
+            ${PRIORITIES.map(p=>`<option value="${p.id}" ${card.prioridade===p.id?"selected":""}>${p.label}</option>`).join("")}
+          </select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label style="${S.label}">Etapa</label>
+          <select style="${S.input}" onchange="updateEditCol(this.value)">
+            ${cols.map(c=>`<option value="${c.id}" ${colId===c.id?"selected":""}>${c.label}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <label style="${S.label}">Observações</label>
+        <textarea style="${S.input}height:68px;resize:vertical;" oninput="updateEditField('observacoes',this.value)">${card.observacoes||""}</textarea>
+      </div>
+      <div style="margin-top:9px;">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:#475569;margin-bottom:3px;font-family:monospace;">
+          <span>PROGRESSO</span><span style="color:${progColor};">${progress}%</span>
+        </div>
+        <div style="height:4px;border-radius:3px;background:rgba(255,255,255,0.06);overflow:hidden;">
+          <div style="height:100%;width:${progress}%;background:linear-gradient(90deg,${progColor}80,${progColor});border-radius:3px;"></div>
+        </div>
+      </div>
+      <div style="margin-top:18px;">
+        <div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:10px;">CHECKLIST</div>
+        ${card.checklist.map((cat,ci)=>`
+          <div style="margin-bottom:14px;">
+            <div style="color:#94a3b8;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:7px;">${cat.cat}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;">
+              ${cat.items.map((item,ii)=>`
+                <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:5px 9px;border-radius:6px;background:${item.done?"rgba(74,222,128,0.08)":"rgba(255,255,255,0.03)"};border:1px solid ${item.done?"rgba(74,222,128,0.25)":"rgba(255,255,255,0.06)"};transition:all 0.2s;">
+                  <input type="checkbox" ${item.done?"checked":""} onchange="toggleCheck(${ci},${ii})" style="accent-color:#4ade80;width:13px;height:13px;" />
+                  <span style="font-size:11px;color:${item.done?"#4ade80":"#64748b"};text-decoration:${item.done?"line-through":"none"};">${item.label}</span>
+                </label>`).join("")}
+            </div>
+          </div>`).join("")}
+      </div>
+      <div style="display:flex;gap:9px;margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.07);">
+        <button onclick="deleteCard('${card.id}')" style="${S.btn}background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;">🗑 Excluir</button>
+        <button onclick="saveCard()" style="${S.btn}flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;">✓ Salvar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderNewModal() {
+  const cols = BOARDS[state.activeBoard].columns;
+  return `
+  <div onclick="closeNew()" style="position:fixed;inset:0;background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;z-index:1000;padding:16px;">
+    <div onclick="event.stopPropagation()" style="background:#0c1220;border:1px solid rgba(255,255,255,0.1);border-radius:16px;width:100%;max-width:460px;padding:28px;box-shadow:0 30px 70px rgba(0,0,0,0.7);">
+      <div style="color:#475569;font-size:10px;letter-spacing:2px;margin-bottom:3px;">NOVO VEÍCULO</div>
+      <div style="color:#f1f5f9;font-size:17px;font-weight:800;margin-bottom:20px;">Adicionar ao Kanban</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        ${[["Placa *","new_placa","ABC-1234"],["Modelo *","new_modelo","Toyota Corolla"],["Consultor","new_consultor","Nome"],["Oficina / Local","new_oficina","Ex: Box 3"]].map(([lbl,id,ph])=>`
+          <div>
+            <label style="${S.label}">${lbl}</label>
+            <input id="${id}" style="${S.input}" placeholder="${ph}" />
+          </div>`).join("")}
+        <div>
+          <label style="${S.label}">Prioridade</label>
+          <select id="new_prioridade" style="${S.input}">
+            ${PRIORITIES.map(p=>`<option value="${p.id}" ${p.id==="media"?"selected":""}>${p.label}</option>`).join("")}
+          </select>
+        </div>
+        <div style="grid-column:1/-1;">
+          <label style="${S.label}">Etapa inicial</label>
+          <select id="new_coluna" style="${S.input}">
+            ${cols.map(c=>`<option value="${c.id}">${c.label}</option>`).join("")}
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:20px;">
+        <label style="${S.label}">Observações</label>
+        <textarea id="new_obs" style="${S.input}height:60px;resize:vertical;" placeholder="Notas iniciais..."></textarea>
+      </div>
+      <div style="display:flex;gap:9px;">
+        <button onclick="closeNew()" style="${S.btn}background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#64748b;">Cancelar</button>
+        <button onclick="addCard()" style="${S.btn}flex:1;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-weight:700;">+ Adicionar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── ACTIONS ──────────────────────────────────────────────────────────────────
+window.switchBoard = (id) => setState({ activeBoard: id, editCard: null, showNew: false });
+window.openNew = () => setState({ showNew: true });
+window.closeNew = () => setState({ showNew: false });
+window.closeModal = () => setState({ editCard: null });
+
+window.openCard = (id) => {
+  for (const [boardId, board] of Object.entries(state.data)) {
+    if (boardId !== state.activeBoard) continue;
+    for (const [colId, cards] of Object.entries(board)) {
+      const card = cards.find(c => c.id === id);
+      if (card) { setState({ editCard: { card: JSON.parse(JSON.stringify(card)), colId } }); return; }
+    }
+  }
+};
+
+window.updateEditField = (key, val) => {
+  if (!state.editCard) return;
+  const card = { ...state.editCard.card, [key]: key === "placa" ? val.toUpperCase() : val };
+  setState({ editCard: { ...state.editCard, card } });
+};
+
+window.updateEditCol = (colId) => {
+  if (!state.editCard) return;
+  setState({ editCard: { ...state.editCard, colId } });
+};
+
+window.toggleCheck = (ci, ii) => {
+  if (!state.editCard) return;
+  const card = JSON.parse(JSON.stringify(state.editCard.card));
+  card.checklist[ci].items[ii].done = !card.checklist[ci].items[ii].done;
+  setState({ editCard: { ...state.editCard, card } });
+};
+
+window.saveCard = () => {
+  const { card, colId } = state.editCard;
+  updateData(d => {
+    for (const col of Object.keys(d[state.activeBoard])) {
+      const idx = d[state.activeBoard][col].findIndex(c => c.id === card.id);
+      if (idx !== -1) { d[state.activeBoard][col].splice(idx, 1); break; }
+    }
+    if (!d[state.activeBoard][colId]) d[state.activeBoard][colId] = [];
+    d[state.activeBoard][colId].push(card);
+    return d;
+  });
+  setState({ editCard: null });
+};
+
+window.deleteCard = (id) => {
+  updateData(d => {
+    for (const col of Object.keys(d[state.activeBoard])) d[state.activeBoard][col] = d[state.activeBoard][col].filter(c => c.id !== id);
+    return d;
+  });
+  setState({ editCard: null });
+};
+
+window.addCard = () => {
+  const placa = document.getElementById("new_placa")?.value?.toUpperCase();
+  const modelo = document.getElementById("new_modelo")?.value;
+  if (!placa || !modelo) return;
+  const coluna = document.getElementById("new_coluna")?.value;
+  const card = {
+    id: uid(), placa, modelo,
+    prioridade: document.getElementById("new_prioridade")?.value || "media",
+    consultor: document.getElementById("new_consultor")?.value || "",
+    oficina: document.getElementById("new_oficina")?.value || "",
+    observacoes: document.getElementById("new_obs")?.value || "",
+    checklist: buildChecklist(state.activeBoard),
+    criadoEm: new Date().toISOString(),
+  };
+  updateData(d => {
+    if (!d[state.activeBoard][coluna]) d[state.activeBoard][coluna] = [];
+    d[state.activeBoard][coluna].unshift(card);
+    return d;
+  });
+  setState({ showNew: false });
+};
+
+window.moveCard = (id, direction) => {
+  const cols = BOARDS[state.activeBoard].columns;
+  let colIdx = -1, cardColId = null, card = null;
+  for (const [ci, col] of cols.entries()) {
+    const found = (state.data[state.activeBoard][col.id] || []).find(c => c.id === id);
+    if (found) { colIdx = ci; cardColId = col.id; card = found; break; }
+  }
+  const target = cols[colIdx + direction];
+  if (!target || !card) return;
+  updateData(d => {
+    d[state.activeBoard][cardColId] = d[state.activeBoard][cardColId].filter(c => c.id !== id);
+    d[state.activeBoard][target.id].unshift(card);
+    return d;
+  });
+};
+
+window.sendQuery = async () => {
+  const val = document.getElementById("queryInput")?.value?.trim();
+  if (!val || state.queryStatus === "thinking") return;
+  setState({ queryStatus: "thinking", queryResult: null });
+  try {
+    const r = await consultaKanban(val, state.data);
+    setState({ queryResult: r, queryStatus: "done" });
+    document.getElementById("queryInput").value = "";
+  } catch(_) { setState({ queryResult: "Erro ao consultar.", queryStatus: "error" }); }
+};
+
+window.quickQuery = async (q) => {
+  setState({ queryStatus: "thinking", queryResult: null });
+  try { const r = await consultaKanban(q, state.data); setState({ queryResult: r, queryStatus: "done" }); }
+  catch(_) { setState({ queryResult: "Erro ao consultar.", queryStatus: "error" }); }
+};
+
+window.sendCmd = async () => {
+  const val = document.getElementById("cmdInput")?.value?.trim();
+  if (!val || state.cmdStatus === "thinking") return;
+  setState({ cmdStatus: "thinking", cmdResult: null });
+  try {
+    const result = await interpretCommand(val, state.data);
+    if (result.acoes?.length > 0) {
+      const next = applyActions(state.data, result.acoes);
+      const log = [{ time: new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"}), msg: result.resumo }, ...state.aiLog.slice(0, 9)];
+      setState({ data: next, cmdResult: { ok: true, msg: result.resumo }, cmdStatus: "done", aiLog: log });
+      persist(next);
+      document.getElementById("cmdInput").value = "";
+    } else {
+      setState({ cmdResult: { ok: false, msg: result.resumo || "Não entendi." }, cmdStatus: "done" });
+    }
+  } catch(_) { setState({ cmdResult: { ok: false, msg: "Erro ao processar." }, cmdStatus: "error" }); }
+};
+
+window.fillCmd = (text) => {
+  const el = document.getElementById("cmdInput");
+  if (el) { el.value = text; el.focus(); }
+};
+
+</script>
+</body>
+</html>
