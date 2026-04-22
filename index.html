@@ -138,7 +138,7 @@ Formato: { "acoes":[...], "resumo":"descrição curta" }
 ESTADO ATUAL: ${JSON.stringify(currentData, null, 2).slice(0, 3000)}`;
 
   const prompt = systemPrompt + "\n\nComando do usuário: " + text;
-  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_KEY, {
+  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -171,7 +171,7 @@ ${JSON.stringify(cards, null, 2)}
 
 Pergunta: ${pergunta}`;
 
-  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_KEY, {
+  const r = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_KEY, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -330,10 +330,13 @@ function render() {
           </button>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:${state.queryResult?12:0}px;">
-          ${["Quais carros estão na recepção?","Quais carros faltam higienizar?","Mostre todos os carros do Pós-venda","Quais carros têm prioridade urgente?","Resumo geral de tudo","Quais carros estão aguardando peça?","Quais carros estão na pintura?"].map(s=>`
-            <button onclick="quickQuery('${s.replace(/'/g,"\\'")}'')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;"
-              onmouseover="this.style.color='#6ee7b7';this.style.borderColor='rgba(16,185,129,0.35)'"
-              onmouseout="this.style.color='#475569';this.style.borderColor='rgba(16,185,129,0.15)'">${s}</button>`).join("")}
+          <button onclick="quickQuery('Quais carros estao na recepcao')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros estão na recepção?</button>
+          <button onclick="quickQuery('Quais carros faltam higienizar')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros faltam higienizar?</button>
+          <button onclick="quickQuery('Carros do pos-venda')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Mostre todos os carros do Pós-venda</button>
+          <button onclick="quickQuery('Carros com prioridade urgente')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros têm prioridade urgente?</button>
+          <button onclick="quickQuery('Resumo geral de tudo')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Resumo geral de tudo</button>
+          <button onclick="quickQuery('Quais carros aguardando peca')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros estão aguardando peça?</button>
+          <button onclick="quickQuery('Quais carros na pintura')" style="background:rgba(16,185,129,0.07);border:1px solid rgba(16,185,129,0.15);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;" onmouseover="this.style.color='#6ee7b7'" onmouseout="this.style.color='#475569'">Quais carros estão na pintura?</button>
         </div>
         ${state.queryResult?`<div style="margin-top:12px;padding:14px 16px;background:rgba(0,0,0,0.25);border:1px solid rgba(16,185,129,0.15);border-radius:10px;font-size:13px;color:#cbd5e1;line-height:1.7;white-space:pre-wrap;max-height:340px;overflow-y:auto;">${state.queryResult}</div>`:""}
       </div>
@@ -356,10 +359,11 @@ function render() {
         </div>
         ${state.cmdResult?`<div style="margin-top:9px;padding:7px 12px;border-radius:8px;background:${state.cmdResult.ok?"rgba(74,222,128,0.08)":"rgba(248,113,113,0.08)"};border:1px solid ${state.cmdResult.ok?"rgba(74,222,128,0.2)":"rgba(248,113,113,0.2)"};font-size:12px;color:${state.cmdResult.ok?"#4ade80":"#f87171"};">${state.cmdResult.ok?"✓ ":"⚠ "}${state.cmdResult.msg}</div>`:""}
         <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:5px;">
-          ${["Entrada o Fiat Argo 2023 placa DEF-9876 prioridade alta","Move o ABC-1234 para revisão","O HR-V XYZ-5678 está pronto","Atualiza obs do ABC-1234: cliente pediu urgência","Marca troca de óleo como feito no ABC-1234"].map(ex=>`
-            <button onclick="fillCmd('${ex.replace(/'/g,"\\'")}'')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;"
-              onmouseover="this.style.color='#94a3b8';this.style.borderColor='rgba(255,255,255,0.15)'"
-              onmouseout="this.style.color='#475569';this.style.borderColor='rgba(255,255,255,0.08)'">${ex.length>42?ex.slice(0,42)+"…":ex}</button>`).join("")}
+          <button onclick="fillCmd('Entrada o Fiat Argo 2023 placa DEF-9876 prioridade alta')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">Entrada o Fiat Argo placa DEF-9876 alta</button>
+          <button onclick="fillCmd('Move o ABC-1234 para revisao')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">Move o ABC-1234 para revisão</button>
+          <button onclick="fillCmd('O HR-V XYZ-5678 esta pronto')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">O HR-V XYZ-5678 está pronto</button>
+          <button onclick="fillCmd('Atualiza obs do ABC-1234 cliente pediu urgencia')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">Atualiza obs do ABC-1234: urgência</button>
+          <button onclick="fillCmd('Marca troca de oleo como feito no ABC-1234')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:#475569;border-radius:20px;font-size:10px;padding:3px 10px;cursor:pointer;font-family:inherit;">Marca troca de óleo no ABC-1234</button>
         </div>
       </div>
 
